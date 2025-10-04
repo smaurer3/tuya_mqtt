@@ -1,0 +1,916 @@
+[
+    {
+        "name": "FOST Lights",
+        "id": "bf215c1cf1e52cbe14lpst",
+        "key": "Zt.Js6kS^UKQg+'v",
+        "mac": "c0:f8:53:81:88:1c",
+        "uuid": "4280e82eae7be99a",
+        "sn": "400003324000B2",
+        "category": "kg",
+        "product_name": "6904HA Series 3",
+        "product_id": "fdokd5heymlpsrgk",
+        "biz_type": 0,
+        "model": "",
+        "sub": false,
+        "icon": "https://images.tuyaeu.com/smart/icon/ay1536534747810ekKBj/95309c81bc4b50b8ce4796d3c82cc5e2.png",
+        "mapping": {
+            "1": {
+                "code": "switch_1",
+                "type": "Boolean",
+                "values": {}
+            },
+            "2": {
+                "code": "switch_2",
+                "type": "Boolean",
+                "values": {}
+            },
+            "3": {
+                "code": "switch_3",
+                "type": "Boolean",
+                "values": {}
+            },
+            "4": {
+                "code": "switch_4",
+                "type": "Boolean",
+                "values": {}
+            },
+            "7": {
+                "code": "countdown_1",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "8": {
+                "code": "countdown_2",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "9": {
+                "code": "countdown_3",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "10": {
+                "code": "countdown_4",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "14": {
+                "code": "relay_status",
+                "type": "Enum",
+                "values": {
+                    "range": [
+                        "power_off",
+                        "power_on",
+                        "last"
+                    ]
+                }
+            },
+            "19": {
+                "code": "switch_inching",
+                "type": "String",
+                "values": "{}"
+            }
+        },
+        "ip": "10.0.7.76",
+        "version": "3.4"
+    },
+    {
+        "name": "Main Hall Lights",
+        "id": "bfe6512a04a12d826e2je9",
+        "key": "']{}9upF&VzdD91+",
+        "mac": "c0:f8:53:81:81:77",
+        "uuid": "4b56c07478e690f1",
+        "sn": "400003324002D4",
+        "category": "kg",
+        "product_name": "6904HA Series 3",
+        "product_id": "fdokd5heymlpsrgk",
+        "biz_type": 0,
+        "model": "",
+        "sub": false,
+        "icon": "https://images.tuyaeu.com/smart/icon/ay1536534747810ekKBj/95309c81bc4b50b8ce4796d3c82cc5e2.png",
+        "mapping": {
+            "1": {
+                "code": "switch_1",
+                "type": "Boolean",
+                "values": {}
+            },
+            "2": {
+                "code": "switch_2",
+                "type": "Boolean",
+                "values": {}
+            },
+            "3": {
+                "code": "switch_3",
+                "type": "Boolean",
+                "values": {}
+            },
+            "4": {
+                "code": "switch_4",
+                "type": "Boolean",
+                "values": {}
+            },
+            "7": {
+                "code": "countdown_1",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "8": {
+                "code": "countdown_2",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "9": {
+                "code": "countdown_3",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "10": {
+                "code": "countdown_4",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "14": {
+                "code": "relay_status",
+                "type": "Enum",
+                "values": {
+                    "range": [
+                        "power_off",
+                        "power_on",
+                        "last"
+                    ]
+                }
+            },
+            "19": {
+                "code": "switch_inching",
+                "type": "String",
+                "values": "{}"
+            }
+        },
+        "ip": "10.0.7.74",
+        "version": "3.4"
+    },
+    {
+        "name": "Marquee Centre Lights",
+        "id": "bfbe78ec005ef43be9yqaa",
+        "key": "]RX5sy=W>MTfv_H(",
+        "mac": "70:89:76:cc:70:20",
+        "uuid": "842d5ada862e5afe",
+        "sn": "100024863062D0",
+        "category": "cz",
+        "product_name": "PC191HA",
+        "product_id": "auojpnb4hpc13ftb",
+        "biz_type": 0,
+        "model": "",
+        "sub": false,
+        "icon": "https://images.tuyaeu.com/smart/icon/ay1536534747810ekKBj/041b2faecf6b6a7792b8328e13be486c.png",
+        "mapping": {
+            "1": {
+                "code": "switch_1",
+                "type": "Boolean",
+                "values": {}
+            },
+            "9": {
+                "code": "countdown_1",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "17": {
+                "code": "add_ele",
+                "type": "Integer",
+                "values": {
+                    "unit": "kW\u00b7h",
+                    "min": 0,
+                    "max": 50000,
+                    "scale": 3,
+                    "step": 100
+                }
+            },
+            "18": {
+                "code": "cur_current",
+                "type": "Integer",
+                "values": {
+                    "unit": "mA",
+                    "min": 0,
+                    "max": 30000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "19": {
+                "code": "cur_power",
+                "type": "Integer",
+                "values": {
+                    "unit": "W",
+                    "min": 0,
+                    "max": 80000,
+                    "scale": 1,
+                    "step": 1
+                }
+            },
+            "20": {
+                "code": "cur_voltage",
+                "type": "Integer",
+                "values": {
+                    "unit": "V",
+                    "min": 0,
+                    "max": 5000,
+                    "scale": 1,
+                    "step": 1
+                }
+            },
+            "22": {
+                "code": "voltage_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 100000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "23": {
+                "code": "electric_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 100000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "24": {
+                "code": "power_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 1000000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "25": {
+                "code": "electricity_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 1000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "26": {
+                "code": "fault",
+                "type": "Bitmap",
+                "values": {
+                    "label": [
+                        "ov_cr",
+                        "ov_vol",
+                        "ov_pwr",
+                        "ls_cr",
+                        "ls_vol",
+                        "ls_pow"
+                    ]
+                }
+            },
+            "38": {
+                "code": "relay_status",
+                "type": "Enum",
+                "values": {
+                    "range": [
+                        "power_off",
+                        "power_on",
+                        "last"
+                    ]
+                }
+            }
+        },
+        "ip": "",
+        "version": ""
+    },
+    {
+        "name": "Marquee Stage Floods",
+        "id": "35758361b8f00903b7bc",
+        "key": "=r2la|~{pl@O?CgH",
+        "mac": "b8:f0:09:03:b7:bc",
+        "uuid": "35758361b8f00903b7bc",
+        "sn": "10000707702440",
+        "category": "cz",
+        "product_name": "Single Adaptor PC190HA",
+        "product_id": "3yj6z55c052okmi5",
+        "biz_type": 0,
+        "model": "",
+        "sub": false,
+        "icon": "https://images.tuyaeu.com/smart/icon/ay1536534747810ekKBj/1565057230e592113ea93.png",
+        "mapping": {
+            "1": {
+                "code": "switch_1",
+                "type": "Boolean",
+                "values": {}
+            },
+            "9": {
+                "code": "countdown_1",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            }
+        },
+        "ip": "",
+        "version": ""
+    },
+    {
+        "name": "OG Band",
+        "id": "3575836150029102d214",
+        "key": "~1{OHUhDKT;/QNUX",
+        "mac": "50:02:91:02:d2:14",
+        "uuid": "3575836150029102d214",
+        "sn": "10000707700AC9",
+        "category": "cz",
+        "product_name": "Single Adaptor PC190HA",
+        "product_id": "3yj6z55c052okmi5",
+        "biz_type": 0,
+        "model": "",
+        "sub": false,
+        "icon": "https://images.tuyaeu.com/smart/icon/ay1536534747810ekKBj/1565057230e592113ea93.png",
+        "mapping": {
+            "1": {
+                "code": "switch_1",
+                "type": "Boolean",
+                "values": {}
+            },
+            "9": {
+                "code": "countdown_1",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            }
+        },
+        "ip": "",
+        "version": ""
+    },
+    {
+        "name": "Camp PA",
+        "id": "35758361500291032e71",
+        "key": "oQ`+aF{qyyy'lGOI",
+        "mac": "50:02:91:03:2e:71",
+        "uuid": "35758361500291032e71",
+        "sn": "10000707700D23",
+        "category": "cz",
+        "product_name": "Single Adaptor PC190HA",
+        "product_id": "3yj6z55c052okmi5",
+        "biz_type": 0,
+        "model": "",
+        "sub": false,
+        "icon": "https://images.tuyaeu.com/smart/icon/ay1536534747810ekKBj/1565057230e592113ea93.png",
+        "mapping": {
+            "1": {
+                "code": "switch_1",
+                "type": "Boolean",
+                "values": {}
+            },
+            "9": {
+                "code": "countdown_1",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            }
+        },
+        "ip": "",
+        "version": ""
+    },
+    {
+        "name": "Marquee Left Lights",
+        "id": "bfc43d801390ecd0c8jb0u",
+        "key": "<illZ:w]#$CaYAXe",
+        "mac": "70:89:76:cc:48:1f",
+        "uuid": "86d7fd093eddaa57",
+        "sn": "10002486304BD2",
+        "category": "cz",
+        "product_name": "PC191HA",
+        "product_id": "auojpnb4hpc13ftb",
+        "biz_type": 0,
+        "model": "",
+        "sub": false,
+        "icon": "https://images.tuyaeu.com/smart/icon/ay1536534747810ekKBj/041b2faecf6b6a7792b8328e13be486c.png",
+        "mapping": {
+            "1": {
+                "code": "switch_1",
+                "type": "Boolean",
+                "values": {}
+            },
+            "9": {
+                "code": "countdown_1",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "17": {
+                "code": "add_ele",
+                "type": "Integer",
+                "values": {
+                    "unit": "kW\u00b7h",
+                    "min": 0,
+                    "max": 50000,
+                    "scale": 3,
+                    "step": 100
+                }
+            },
+            "18": {
+                "code": "cur_current",
+                "type": "Integer",
+                "values": {
+                    "unit": "mA",
+                    "min": 0,
+                    "max": 30000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "19": {
+                "code": "cur_power",
+                "type": "Integer",
+                "values": {
+                    "unit": "W",
+                    "min": 0,
+                    "max": 80000,
+                    "scale": 1,
+                    "step": 1
+                }
+            },
+            "20": {
+                "code": "cur_voltage",
+                "type": "Integer",
+                "values": {
+                    "unit": "V",
+                    "min": 0,
+                    "max": 5000,
+                    "scale": 1,
+                    "step": 1
+                }
+            },
+            "22": {
+                "code": "voltage_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 100000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "23": {
+                "code": "electric_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 100000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "24": {
+                "code": "power_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 1000000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "25": {
+                "code": "electricity_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 1000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "26": {
+                "code": "fault",
+                "type": "Bitmap",
+                "values": {
+                    "label": [
+                        "ov_cr",
+                        "ov_vol",
+                        "ov_pwr",
+                        "ls_cr",
+                        "ls_vol",
+                        "ls_pow"
+                    ]
+                }
+            },
+            "38": {
+                "code": "relay_status",
+                "type": "Enum",
+                "values": {
+                    "range": [
+                        "power_off",
+                        "power_on",
+                        "last"
+                    ]
+                }
+            }
+        },
+        "ip": "",
+        "version": ""
+    },
+    {
+        "name": "Marquee Right Lights",
+        "id": "bf96943a1af90ed291pgya",
+        "key": "E*pmuy?]Zf:B@]Nu",
+        "mac": "70:89:76:cc:59:80",
+        "uuid": "c3b6223ddc83b03c",
+        "sn": "100024863056A4",
+        "category": "cz",
+        "product_name": "PC191HA",
+        "product_id": "auojpnb4hpc13ftb",
+        "biz_type": 0,
+        "model": "",
+        "sub": false,
+        "icon": "https://images.tuyaeu.com/smart/icon/ay1536534747810ekKBj/041b2faecf6b6a7792b8328e13be486c.png",
+        "mapping": {
+            "1": {
+                "code": "switch_1",
+                "type": "Boolean",
+                "values": {}
+            },
+            "9": {
+                "code": "countdown_1",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "17": {
+                "code": "add_ele",
+                "type": "Integer",
+                "values": {
+                    "unit": "kW\u00b7h",
+                    "min": 0,
+                    "max": 50000,
+                    "scale": 3,
+                    "step": 100
+                }
+            },
+            "18": {
+                "code": "cur_current",
+                "type": "Integer",
+                "values": {
+                    "unit": "mA",
+                    "min": 0,
+                    "max": 30000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "19": {
+                "code": "cur_power",
+                "type": "Integer",
+                "values": {
+                    "unit": "W",
+                    "min": 0,
+                    "max": 80000,
+                    "scale": 1,
+                    "step": 1
+                }
+            },
+            "20": {
+                "code": "cur_voltage",
+                "type": "Integer",
+                "values": {
+                    "unit": "V",
+                    "min": 0,
+                    "max": 5000,
+                    "scale": 1,
+                    "step": 1
+                }
+            },
+            "22": {
+                "code": "voltage_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 100000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "23": {
+                "code": "electric_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 100000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "24": {
+                "code": "power_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 1000000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "25": {
+                "code": "electricity_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 1000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "26": {
+                "code": "fault",
+                "type": "Bitmap",
+                "values": {
+                    "label": [
+                        "ov_cr",
+                        "ov_vol",
+                        "ov_pwr",
+                        "ls_cr",
+                        "ls_vol",
+                        "ls_pow"
+                    ]
+                }
+            },
+            "38": {
+                "code": "relay_status",
+                "type": "Enum",
+                "values": {
+                    "range": [
+                        "power_off",
+                        "power_on",
+                        "last"
+                    ]
+                }
+            }
+        },
+        "ip": "",
+        "version": ""
+    },
+    {
+        "name": "Marquee Security Flood",
+        "id": "bfeb7a53cbed6628c9hudm",
+        "key": "M!4B7U#o/:AUo$F&",
+        "mac": "70:89:76:cc:69:64",
+        "uuid": "175f9a228710c2a0",
+        "sn": "10002486305BB2",
+        "category": "cz",
+        "product_name": "PC191HA",
+        "product_id": "auojpnb4hpc13ftb",
+        "biz_type": 0,
+        "model": "",
+        "sub": false,
+        "icon": "https://images.tuyaeu.com/smart/icon/ay1536534747810ekKBj/041b2faecf6b6a7792b8328e13be486c.png",
+        "mapping": {
+            "1": {
+                "code": "switch_1",
+                "type": "Boolean",
+                "values": {}
+            },
+            "9": {
+                "code": "countdown_1",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "17": {
+                "code": "add_ele",
+                "type": "Integer",
+                "values": {
+                    "unit": "kW\u00b7h",
+                    "min": 0,
+                    "max": 50000,
+                    "scale": 3,
+                    "step": 100
+                }
+            },
+            "18": {
+                "code": "cur_current",
+                "type": "Integer",
+                "values": {
+                    "unit": "mA",
+                    "min": 0,
+                    "max": 30000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "19": {
+                "code": "cur_power",
+                "type": "Integer",
+                "values": {
+                    "unit": "W",
+                    "min": 0,
+                    "max": 80000,
+                    "scale": 1,
+                    "step": 1
+                }
+            },
+            "20": {
+                "code": "cur_voltage",
+                "type": "Integer",
+                "values": {
+                    "unit": "V",
+                    "min": 0,
+                    "max": 5000,
+                    "scale": 1,
+                    "step": 1
+                }
+            },
+            "22": {
+                "code": "voltage_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 100000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "23": {
+                "code": "electric_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 100000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "24": {
+                "code": "power_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 1000000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "25": {
+                "code": "electricity_coe",
+                "type": "Integer",
+                "values": {
+                    "min": 0,
+                    "max": 1000000,
+                    "scale": 0,
+                    "step": 1
+                }
+            },
+            "26": {
+                "code": "fault",
+                "type": "Bitmap",
+                "values": {
+                    "label": [
+                        "ov_cr",
+                        "ov_vol",
+                        "ov_pwr",
+                        "ls_cr",
+                        "ls_vol",
+                        "ls_pow"
+                    ]
+                }
+            },
+            "38": {
+                "code": "relay_status",
+                "type": "Enum",
+                "values": {
+                    "range": [
+                        "power_off",
+                        "power_on",
+                        "last"
+                    ]
+                }
+            }
+        },
+        "ip": "",
+        "version": ""
+    },
+    {
+        "name": "Hall Audio System",
+        "id": "3575836150029102fd1d",
+        "key": "6f33839b22f93916",
+        "mac": "50:02:91:02:fd:1d",
+        "uuid": "3575836150029102fd1d",
+        "sn": "10000707700077",
+        "category": "cz",
+        "product_name": "Single Adaptor PC190HA",
+        "product_id": "3yj6z55c052okmi5",
+        "biz_type": 0,
+        "model": "",
+        "sub": false,
+        "icon": "https://images.tuyaeu.com/smart/icon/ay1536534747810ekKBj/1565057230e592113ea93.png",
+        "mapping": {
+            "1": {
+                "code": "switch_1",
+                "type": "Boolean",
+                "values": {}
+            },
+            "9": {
+                "code": "countdown_1",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            }
+        },
+        "ip": "10.0.7.41",
+        "version": "3.3"
+    }
+]

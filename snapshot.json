@@ -1,0 +1,95 @@
+{
+    "timestamp": 1759475170.022727,
+    "devices": [
+        {
+            "id": "bfe6512a04a12d826e2je9",
+            "ip": "10.0.7.74",
+            "active": 2,
+            "encrypt": true,
+            "productKey": "key5ckdnys3pqgec",
+            "token": true,
+            "wf_cfg": true,
+            "name": "Main Hall Lights",
+            "key": "']{}9upF&VzdD91+",
+            "mac": "c0:f8:53:81:81:77",
+            "ability": 0,
+            "dev_type": "default",
+            "err": "",
+            "type": "default",
+            "dps": {
+                "dps": {
+                    "1": false,
+                    "2": false,
+                    "3": false,
+                    "4": false,
+                    "7": 0,
+                    "8": 0,
+                    "9": 0,
+                    "10": 0,
+                    "14": "off",
+                    "19": ""
+                }
+            },
+            "origin": "broadcast",
+            "ver": "3.4"
+        },
+        {
+            "id": "bf215c1cf1e52cbe14lpst",
+            "ip": "10.0.7.76",
+            "active": 2,
+            "encrypt": true,
+            "productKey": "key5ckdnys3pqgec",
+            "token": true,
+            "wf_cfg": true,
+            "name": "FOST Lights",
+            "key": "Zt.Js6kS^UKQg+'v",
+            "mac": "c0:f8:53:81:88:1c",
+            "ability": 0,
+            "dev_type": "default",
+            "err": "",
+            "type": "default",
+            "dps": {
+                "dps": {
+                    "1": false,
+                    "2": false,
+                    "3": false,
+                    "4": false,
+                    "7": 0,
+                    "8": 0,
+                    "9": 0,
+                    "10": 0,
+                    "14": "off",
+                    "19": ""
+                }
+            },
+            "origin": "broadcast",
+            "ver": "3.4"
+        },
+        {
+            "id": "3575836150029102fd1d",
+            "ip": "10.0.7.41",
+            "active": 2,
+            "ability": 0,
+            "mode": 0,
+            "encrypt": true,
+            "productKey": "keyqhqmt59kctur3",
+            "name": "Hall Audio System",
+            "key": "6f33839b22f93916",
+            "mac": "50:02:91:02:fd:1d",
+            "token": "",
+            "wf_cfg": "",
+            "dev_type": "default",
+            "err": "",
+            "type": "default",
+            "dps": {
+                "devId": "3575836150029102fd1d",
+                "dps": {
+                    "1": false,
+                    "9": 0
+                }
+            },
+            "origin": "broadcast",
+            "ver": "3.3"
+        }
+    ]
+}
