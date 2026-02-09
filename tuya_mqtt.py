@@ -15,29 +15,36 @@ MQTT_BROKER = "192.168.10.1"  # replace with your broker IP
 MQTT_PORT = 1883
 client = mqtt.Client()
 
+
+def send_command_async(device, switch, command):
+    def worker():
+        try:
+            if command == 'on':
+                device.turn_on(int(switch))
+            elif command == 'off':
+                device.turn_off(int(switch))
+        except Exception as e:
+            print(f"Error controlling {device.id} switch {switch}: {e}")
+    threading.Thread(target=worker, daemon=True).start()
+
+
 def on_message(client, userdata, msg):
     topic_parts = msg.topic.split('/')
-    # Expect topic: tuya/{dev_id}/{switch}/set
     if len(topic_parts) != 4 or topic_parts[0] != 'tuya' or topic_parts[3] != 'set':
         return
     dev_id = topic_parts[1]
     switch = topic_parts[2]
     command = msg.payload.decode().lower()
-    
+    print(f"MESSAGE: {dev_id}/{switch}/{command}")
+
     if dev_id not in devices:
         print(f"Unknown device {dev_id}")
         return
 
     device = devices[dev_id]
-    try:
-        if command == 'on':
-            device.turn_on(int(switch))
-        elif command == 'off':
-            device.turn_off(int(switch))
-        else:
-            print(f"Unknown command: {command}")
-    except Exception as e:
-        print(f"Error controlling {dev_id} switch {switch}: {e}")
+    # Send the command in its own thread, non-blocking
+    send_command_async(device, switch, command)
+
 
 client.on_message = on_message
 client.connect(MQTT_BROKER, MQTT_PORT, 60)
@@ -78,8 +85,15 @@ for device in devices.values():
 def poll_device_thread(dev_id, device):
     while True:
         try:
-            data = device.status()
-            dps = data.get('dps', {})
+            try:
+                data = device.status()
+                if data is None:
+                    raise Exception("No response from device")
+                dps = data.get('dps', {})
+                # rest of polling logic...
+            except Exception as e:
+                print(f"{dev_id} offline or error: {e}")
+
             last_dps = last_states.get(dev_id, {})
 
             # Publish only changes
