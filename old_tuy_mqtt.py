@@ -67,39 +67,32 @@ for dev in devices_info:
 
 # Keep track of last known DPS state to detect changes
 last_states = {}
+POLL_INTERVAL = 1  # seconds
 
-POLL_INTERVAL = .3  # seconds
-
-# Set up each device with a short timeout
-for device in devices.values():
-    device.set_socketPersistent(False)
-    device.set_socketTimeout(3)
-
-def poll_device_thread(dev_id, device):
+def poll_devices():
     while True:
-        try:
-            data = device.status()
-            dps = data.get('dps', {})
-            last_dps = last_states.get(dev_id, {})
+        print ("POLL")
+        for dev_id, device in devices.items():
+            print ("dev_id")
+            try:
+                data = device.status()
+                dps = data.get('dps', {})
+                last_dps = last_states.get(dev_id, {})
+                
+                # Compare and publish changes
+                for switch, value in dps.items():
+                    if last_dps.get(switch) != value:
+                        topic = f"tuya/{dev_id}/{switch}/state"
+                        client.publish(topic, "on" if value else "off", retain=True)
+                
+                last_states[dev_id] = dps
+            except Exception as e:
+                print(f"Error polling {dev_id}: {e}")
 
-            # Publish only changes
-            for switch, value in dps.items():
-                if last_dps.get(switch) != value:
-                    topic = f"tuya/{dev_id}/{switch}/state"
-                    client.publish(topic, "on" if value else "off", retain=True)
-
-            last_states[dev_id] = dps
-        except Exception as e:
-            print(f"{dev_id} offline or error: {e}")
         time.sleep(POLL_INTERVAL)
 
-# Start one thread per device
-for dev_id, device in devices.items():
-    t = threading.Thread(target=poll_device_thread, args=(dev_id, device), daemon=True)
-    t.start()
-
-print("Polling started for all devices.")
-
+# Run polling in separate thread
+threading.Thread(target=poll_devices, daemon=True).start()
 
 try:
     while True:
