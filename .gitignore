@@ -4,6 +4,13 @@ snapshot.json
 tinytuya.json
 tuya-raw.json
 
+# Per-deployment configuration — user state, not source code.
+# Apps load defaults from code if these are missing on a fresh deploy.
+aliases.json
+gpio_config.json
+mqtt_config.json
+admin_config.json
+
 # Python
 __pycache__/
 *.pyc

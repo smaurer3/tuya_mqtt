@@ -1,5 +1,0 @@
-{
-  "systemd_unit": "tuya_mqtt.service",
-  "tinytuya_json_path": "/home/pi/tinytuya.json",
-  "admin_port": 8088
-}
