@@ -184,9 +184,12 @@ function renderDevices() {
             <div class="device-body">
                 <div class="device-top">
                     <span class="device-name">${escapeHtml(dev.name || dev.id)}</span>
-                    <span class="device-id-chip" title="${dev.id}">${dev.id.slice(0, 10)}…</span>
                     ${dev.version ? `<span class="device-version">v${escapeHtml(dev.version)}</span>` : ""}
                     ${dev.ip ? `<span class="device-ip">${escapeHtml(dev.ip)}</span>` : `<span class="device-noip">NO IP — RUN DISCOVERY</span>`}
+                </div>
+                <div class="device-id-row">
+                    <span class="device-id-label">ID</span>
+                    <span class="device-id-full">${escapeHtml(dev.id)}</span>
                 </div>
                 <div class="alias-row">
                     <label>Alias</label>
