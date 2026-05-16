@@ -1,0 +1,6 @@
+{
+  "broker": "192.168.10.1",
+  "port": 1883,
+  "username": "",
+  "password": ""
+}

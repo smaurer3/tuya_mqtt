@@ -1,0 +1,15 @@
+[Unit]
+Description=Tuya Admin Web UI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/pi/tuya_mqtt/tuya_admin.py
+Restart=always
+User=pi
+Group=www-data
+WorkingDirectory=/home/pi/tuya_mqtt
+
+[Install]
+WantedBy=multi-user.target

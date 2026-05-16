@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+paho-mqtt
+tinytuya
+pydantic>=2

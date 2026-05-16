@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tuya Admin</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <span class="logo-icon">⬡</span>
+                    <span class="logo-text">TUYA <span class="logo-sub">ADMIN</span></span>
+                </div>
+            </div>
+            <div class="header-center">
+                <nav class="nav">
+                    <button class="nav-btn active" data-tab="devices">Devices</button>
+                    <button class="nav-btn" data-tab="discover">Discover</button>
+                    <button class="nav-btn" data-tab="settings">Settings</button>
+                    <button class="nav-btn" data-tab="help">? Help</button>
+                </nav>
+            </div>
+            <div class="header-right">
+                <div class="status-cluster">
+                    <div class="status-item">
+                        <span class="status-dot" id="mqtt-dot"></span>
+                        <span class="status-label">MQTT</span>
+                    </div>
+                    <div class="divider-v"></div>
+                    <div class="status-item">
+                        <span class="status-dot" id="svc-dot"></span>
+                        <span class="status-label" id="svc-label">SERVICE</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="main">
+
+            <!-- DEVICES TAB -->
+            <div class="tab-content active" id="tab-devices">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>Devices</h2>
+                        <span class="panel-sub">Discovered Tuya devices, aliases, and live state</span>
+                        <button class="btn-ghost btn-sm" onclick="refreshDevices()">↻ Refresh</button>
+                        <button class="btn-primary btn-sm" onclick="saveAllAliases()">Save Aliases</button>
+                    </div>
+                    <div id="devices-list" class="devices-list">
+                        <div class="empty-state">Loading devices…</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DISCOVER TAB -->
+            <div class="tab-content" id="tab-discover">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>Device Discovery</h2>
+                        <span class="panel-sub">Replicates <span class="mono">python -m tinytuya wizard</span></span>
+                        <button class="btn-primary btn-sm" id="discover-btn" onclick="startDiscovery()">▶ Start Discovery</button>
+                    </div>
+                    <div class="discovery-body">
+                        <p class="help-p">Pulls your device list and local keys from the Tuya Cloud, scans the local network to match each device to its current IP, and writes <span class="mono">devices.json</span>. Requires Tuya IoT Platform credentials — set them in <em>Settings</em>.</p>
+                        <div class="discovery-log" id="discovery-log">
+                            <div class="empty-state">No discovery run yet</div>
+                        </div>
+                        <div class="form-actions">
+                            <button class="btn-ghost" onclick="restartService()">↻ Restart tuya_mqtt service</button>
+                            <span class="save-status" id="restart-status"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SETTINGS TAB -->
+            <div class="tab-content" id="tab-settings">
+                <div class="panel settings-panel">
+                    <div class="panel-header">
+                        <h2>MQTT Broker</h2>
+                        <span class="panel-sub">Shared with tuya_mqtt — restart service after changes</span>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Broker Host</label>
+                            <input type="text" id="mqtt-broker" placeholder="192.168.10.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Port</label>
+                            <input type="number" id="mqtt-port" placeholder="1883">
+                        </div>
+                        <div class="form-group">
+                            <label>Username <span class="optional">optional</span></label>
+                            <input type="text" id="mqtt-user" placeholder="username">
+                        </div>
+                        <div class="form-group">
+                            <label>Password <span class="optional">optional</span></label>
+                            <input type="password" id="mqtt-pass" placeholder="••••••••">
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn-primary" onclick="saveMqttConfig()">Save MQTT Config</button>
+                        <span class="save-status" id="mqtt-save-status"></span>
+                    </div>
+                </div>
+
+                <div class="panel settings-panel mt-16">
+                    <div class="panel-header">
+                        <h2>Tuya Cloud Credentials</h2>
+                        <span class="panel-sub">Required for device discovery (writes to <span class="mono" id="tinytuya-path-display">tinytuya.json</span>)</span>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group form-group-wide">
+                            <label>API Key</label>
+                            <input type="text" id="tuya-key" placeholder="from iot.tuya.com">
+                        </div>
+                        <div class="form-group form-group-wide">
+                            <label>API Secret</label>
+                            <input type="password" id="tuya-secret" placeholder="leave blank to keep existing">
+                            <span class="hint" id="tuya-secret-hint"></span>
+                        </div>
+                        <div class="form-group">
+                            <label>Region</label>
+                            <select id="tuya-region">
+                                <option value="us">US (Americas)</option>
+                                <option value="eu">EU (Europe)</option>
+                                <option value="cn">CN (China)</option>
+                                <option value="in">IN (India)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Any Device ID <span class="optional">optional</span></label>
+                            <input type="text" id="tuya-devid" placeholder="any one of your devices">
+                            <span class="hint">Some regions require one of your existing device IDs for cloud auth</span>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn-primary" onclick="saveTuyaCreds()">Save Credentials</button>
+                        <span class="save-status" id="tuya-save-status"></span>
+                    </div>
+                </div>
+
+                <div class="panel settings-panel mt-16">
+                    <div class="panel-header">
+                        <h2>Admin</h2>
+                        <span class="panel-sub">Service control and file paths</span>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group form-group-wide">
+                            <label>tuya_mqtt systemd Unit</label>
+                            <input type="text" id="adm-unit" placeholder="tuya_mqtt.service">
+                            <span class="hint">Requires passwordless sudo: <span class="mono">pi ALL=(ALL) NOPASSWD: /bin/systemctl restart tuya_mqtt.service</span></span>
+                        </div>
+                        <div class="form-group form-group-wide">
+                            <label>tinytuya.json Path</label>
+                            <input type="text" id="adm-tinytuya" placeholder="/home/pi/tinytuya.json">
+                        </div>
+                        <div class="form-group">
+                            <label>Admin Port</label>
+                            <input type="number" id="adm-port" placeholder="8088">
+                            <span class="hint">Restart admin to apply</span>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn-primary" onclick="saveAdminConfig()">Save Admin Config</button>
+                        <span class="save-status" id="adm-save-status"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HELP TAB -->
+            <div class="tab-content" id="tab-help">
+                <div class="panel">
+                    <div class="panel-header"><h2>What is Tuya Admin?</h2></div>
+                    <div class="help-body">
+                        <p class="help-intro"><strong>Tuya Admin</strong> is the onboarding and management UI for the local Tuya MQTT bridge running on this server. It does three jobs:</p>
+                        <ol class="help-steps">
+                            <li><strong>Discovery</strong> — same end result as <span class="mono">python -m tinytuya wizard</span>, but in your browser. Talks to the Tuya Cloud to pull each device's local key, scans the network for IPs, and writes <span class="mono">devices.json</span>.</li>
+                            <li><strong>Aliasing</strong> — assign a friendly variable name (e.g. <span class="mono">stage_lights</span>) to each device so you can use it in MQTT topics instead of the long random device ID. Original IDs keep working — alias resolution is additive.</li>
+                            <li><strong>Testing</strong> — Send <strong>ON</strong> / <strong>OFF</strong> commands to any switch on any device, watch the gate card light up when state confirms back over MQTT.</li>
+                        </ol>
+                    </div>
+                </div>
+                <div class="panel mt-16">
+                    <div class="panel-header"><h2>MQTT Topic Format</h2></div>
+                    <div class="help-body">
+                        <table class="data-table help-table">
+                            <thead><tr><th>Direction</th><th>Topic</th><th>Payload</th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>Command (in)</strong></td><td><span class="mono">tuya/{id-or-alias}/{switch}/set</span></td><td><span class="mono">on</span> / <span class="mono">off</span></td></tr>
+                                <tr><td><strong>State (out)</strong></td><td><span class="mono">tuya/{id}/{switch}/state</span> &amp;<br><span class="mono">tuya/{alias}/{switch}/state</span></td><td><span class="mono">on</span> / <span class="mono">off</span> (retained)</td></tr>
+                            </tbody>
+                        </table>
+                        <div class="help-tip"><strong>Backwards compatible:</strong> when an alias is set, state is published to <em>both</em> the alias topic and the raw-ID topic. Anything you've already wired against the ID keeps working.</div>
+                    </div>
+                </div>
+                <div class="panel mt-16">
+                    <div class="panel-header"><h2>Quick Start</h2></div>
+                    <div class="help-body">
+                        <ol class="help-steps">
+                            <li><strong>Enter Tuya Cloud credentials</strong> — Settings tab → Tuya Cloud Credentials. Get API key + secret from <span class="mono">iot.tuya.com</span>.</li>
+                            <li><strong>Run discovery</strong> — Discover tab → <em>Start Discovery</em>. Watch the log. Takes ~25s.</li>
+                            <li><strong>Restart the service</strong> — Discover tab → <em>Restart tuya_mqtt service</em>. The bridge picks up the new <span class="mono">devices.json</span>.</li>
+                            <li><strong>Set aliases</strong> — Devices tab → type a name in the <em>Alias</em> field for each device → <em>Save Aliases</em>. Hot-reloads in tuya_mqtt within 2 seconds, no restart needed.</li>
+                            <li><strong>Test</strong> — Click <strong>ON</strong> / <strong>OFF</strong> on the switch cards. The card lights up blue when the device confirms.</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
