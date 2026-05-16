@@ -224,6 +224,55 @@ html, body {
 }
 .add-switch-btn:hover { color: var(--accent); border-color: var(--accent); }
 
+/* ── INFO DPS (read-only metadata, collapsible) ── */
+.info-dps-block { margin-top: 4px; }
+.info-dps-block summary {
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 4px 0;
+    user-select: none;
+    transition: color var(--transition);
+}
+.info-dps-block summary:hover { color: var(--text-dim); }
+.info-dps-block[open] summary { color: var(--text-dim); }
+.info-dps-count {
+    font-family: var(--font-mono); font-size: 10px;
+    background: var(--bg-input); border: 1px solid var(--border);
+    border-radius: 4px; padding: 0 6px;
+    color: var(--text-muted); margin-left: 4px;
+}
+.info-dps-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 6px; margin-top: 6px;
+}
+.info-dp {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 10px;
+}
+.info-dp-top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 8px; margin-bottom: 2px;
+}
+.info-dp-dp {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--text-muted); letter-spacing: 0.08em;
+}
+.info-dp-type {
+    font-family: var(--font-mono); font-size: 9px;
+    color: var(--text-muted); text-transform: uppercase;
+    background: var(--bg-input); border-radius: 3px; padding: 1px 5px;
+}
+.info-dp-code {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--text-dim);
+}
+
 /* ── DISCOVERY ── */
 .discovery-body { padding: 16px 20px; }
 .help-p { color: var(--text-dim); font-size: 13px; line-height: 1.7; margin-bottom: 12px; }

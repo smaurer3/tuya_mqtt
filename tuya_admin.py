@@ -328,6 +328,26 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 # ── Routes: API ───────────────────────────────────────────────────────────────
+def _classify_dps(mapping: dict):
+    """Split a device's DPS mapping into switches vs informational DPS.
+    Switches = Boolean + code starts with "switch_" (excludes switch_inching etc.
+    only if code doesn't start with switch — they do, so be stricter: type==Boolean).
+    """
+    switches = []
+    info = []
+    for dp, meta in mapping.items():
+        code = str(meta.get("code", ""))
+        typ = str(meta.get("type", ""))
+        entry = {"dp": str(dp), "code": code, "type": typ}
+        if typ == "Boolean" and code.startswith("switch_"):
+            switches.append(entry)
+        else:
+            info.append(entry)
+    switches.sort(key=lambda e: int(e["dp"]) if e["dp"].isdigit() else 9999)
+    info.sort(key=lambda e: int(e["dp"]) if e["dp"].isdigit() else 9999)
+    return switches, info
+
+
 @app.get("/api/devices")
 async def api_devices():
     devices = load_devices()
@@ -336,6 +356,8 @@ async def api_devices():
     out = []
     for d in devices:
         dev_id = d["id"]
+        mapping = d.get("mapping", {}) or {}
+        switches, info = _classify_dps(mapping)
         out.append({
             "name": d.get("name", dev_id),
             "id": dev_id,
@@ -343,6 +365,9 @@ async def api_devices():
             "version": d.get("version", ""),
             "alias": reverse.get(dev_id, ""),
             "state": state_cache.get(dev_id, {}),
+            "switches": switches,           # [{dp, code, type}, ...] — render as on/off
+            "info_dps": info,               # [{dp, code, type}, ...] — read-only metadata
+            "has_mapping": bool(mapping),   # false → no cloud mapping, fall back to seen DPS
         })
     return {"devices": out, "service": service_status()}
 

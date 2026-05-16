@@ -133,22 +133,52 @@ function renderDevices() {
         const row = document.createElement("div");
         row.className = "device-row" + (offline ? " offline" : "");
 
-        const switchList = Array.from(switchesShown[dev.id] || new Set(["1"])).sort();
-        const switchesHtml = switchList.map(sw => {
-            const isOn = (dev.state || {})[sw] === "on";
+        // Pick switches from cloud mapping if available; fall back to seen DPS
+        let switchList;
+        if (dev.has_mapping) {
+            switchList = (dev.switches || []).map(s => ({dp: s.dp, label: prettyCode(s.code)}));
+        } else {
+            switchList = Array.from(switchesShown[dev.id] || new Set(["1"]))
+                .sort((a, b) => (parseInt(a) || 999) - (parseInt(b) || 999))
+                .map(sw => ({dp: sw, label: `SW ${sw}`}));
+        }
+
+        const switchesHtml = switchList.map(({dp, label}) => {
+            const isOn = (dev.state || {})[dp] === "on";
             return `
-                <div class="switch-card ${isOn ? "on" : ""}" data-dev="${dev.id}" data-switch="${sw}">
+                <div class="switch-card ${isOn ? "on" : ""}" data-dev="${dev.id}" data-switch="${dp}">
                     <div class="switch-top">
-                        <span class="switch-label">SW ${sw}</span>
+                        <span class="switch-label">${escapeHtml(label)}</span>
                         <span class="switch-indicator"></span>
                     </div>
                     <div class="switch-buttons">
-                        <button class="btn-switch btn-on" onclick="sendCommand('${dev.id}', '${sw}', true)">ON</button>
-                        <button class="btn-switch btn-off" onclick="sendCommand('${dev.id}', '${sw}', false)">OFF</button>
+                        <button class="btn-switch btn-on" onclick="sendCommand('${dev.id}', '${dp}', true)">ON</button>
+                        <button class="btn-switch btn-off" onclick="sendCommand('${dev.id}', '${dp}', false)">OFF</button>
                     </div>
                 </div>
             `;
         }).join("");
+
+        const addBtnHtml = dev.has_mapping ? "" :
+            `<button class="add-switch-btn" onclick="addSwitch('${dev.id}')">+ switch</button>`;
+
+        const infoDps = dev.info_dps || [];
+        const infoHtml = infoDps.length ? `
+            <details class="info-dps-block">
+                <summary>Other DPS <span class="info-dps-count">${infoDps.length}</span></summary>
+                <div class="info-dps-grid">
+                    ${infoDps.map(i => `
+                        <div class="info-dp">
+                            <div class="info-dp-top">
+                                <span class="info-dp-dp">DP ${i.dp}</span>
+                                <span class="info-dp-type">${escapeHtml(i.type)}</span>
+                            </div>
+                            <div class="info-dp-code">${escapeHtml(i.code)}</div>
+                        </div>
+                    `).join("")}
+                </div>
+            </details>
+        ` : "";
 
         row.innerHTML = `
             <div class="device-body">
@@ -168,13 +198,20 @@ function renderDevices() {
                            oninput="onAliasInput(this)">
                 </div>
                 <div class="switches-row">
-                    ${switchesHtml}
-                    <button class="add-switch-btn" onclick="addSwitch('${dev.id}')">+ switch</button>
+                    ${switchesHtml || '<div class="empty-state" style="padding:8px 12px">No on/off switches on this device</div>'}
+                    ${addBtnHtml}
                 </div>
+                ${infoHtml}
             </div>
         `;
         root.appendChild(row);
     }
+}
+
+function prettyCode(code) {
+    // switch_1 → SWITCH 1, switch_main → SWITCH MAIN, etc.
+    if (!code) return "SW";
+    return code.toUpperCase().replace(/_/g, " ");
 }
 
 function onAliasInput(input) {
