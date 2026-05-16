@@ -18,7 +18,21 @@ GPIO.setup(GPIO_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 # --- MQTT setup ---
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, CLIENT_ID, clean_session=False)
-client.connect(BROKER, PORT, keepalive=60)
+
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print("[MQTT] Connected")
+    else:
+        print(f"[MQTT] Connect failed: rc={rc}")
+
+def on_disconnect(client, userdata, rc):
+    print(f"[MQTT] Disconnected: rc={rc} — paho will auto-reconnect")
+
+client.on_connect = on_connect
+client.on_disconnect = on_disconnect
+client.reconnect_delay_set(min_delay=1, max_delay=60)
+client.connect_async(BROKER, PORT, keepalive=60)
+client.loop_start()
 
 # Publish retained so new subscribers get the last known state
 def publish_state(state: str):
@@ -35,7 +49,6 @@ def main():
         if state_str != last_state:
             publish_state(state_str)
             last_state = state_str
-        client.loop(timeout=1.0)
         time.sleep(1.0)
 
 if __name__ == "__main__":
@@ -45,4 +58,5 @@ if __name__ == "__main__":
         print("\nExiting...")
     finally:
         GPIO.cleanup()
+        client.loop_stop()
         client.disconnect()

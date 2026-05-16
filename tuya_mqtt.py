@@ -94,10 +94,25 @@ def on_message(client, userdata, msg):
     device_queues[dev_id].put((command, switch))
 
 
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print("[MQTT] Connected — (re)subscribing")
+        # Re-subscribe on every connect so broker restarts don't strand us
+        client.subscribe("tuya/+/+/set")
+    else:
+        print(f"[MQTT] Connect failed: rc={rc}")
+
+
+def on_disconnect(client, userdata, rc):
+    print(f"[MQTT] Disconnected: rc={rc} — paho will auto-reconnect")
+
+
 # ── MQTT setup ────────────────────────────────────────────────────────────────
 client.on_message = on_message
-client.connect(MQTT_BROKER, MQTT_PORT, 60)
-client.subscribe("tuya/+/+/set")
+client.on_connect = on_connect
+client.on_disconnect = on_disconnect
+client.reconnect_delay_set(min_delay=1, max_delay=60)
+client.connect_async(MQTT_BROKER, MQTT_PORT, 60)
 client.loop_start()
 
 # ── Device init ───────────────────────────────────────────────────────────────
