@@ -1,0 +1,15 @@
+# Tuya credentials and per-device local keys — must never be committed
+devices.json
+snapshot.json
+tinytuya.json
+tuya-raw.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Editor
+.vscode/
+.idea/
+*.swp
