@@ -21,6 +21,7 @@
                 <nav class="nav">
                     <button class="nav-btn active" data-tab="devices">Devices</button>
                     <button class="nav-btn" data-tab="discover">Discover</button>
+                    <button class="nav-btn" data-tab="gpio">GPIO</button>
                     <button class="nav-btn" data-tab="settings">Settings</button>
                     <button class="nav-btn" data-tab="help">? Help</button>
                 </nav>
@@ -74,6 +75,37 @@
                             <button class="btn-ghost" onclick="restartService()">↻ Restart tuya_mqtt service</button>
                             <span class="save-status" id="restart-status"></span>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GPIO TAB -->
+            <div class="tab-content" id="tab-gpio">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>GPIO Inputs</h2>
+                        <span class="panel-sub">Raspberry Pi pins → MQTT topics (state published on change)</span>
+                        <button class="btn-ghost btn-sm" onclick="addGpioInput()">+ Add Input</button>
+                    </div>
+                    <div id="gpio-inputs-list" class="gpio-list">
+                        <div class="empty-state">No inputs configured</div>
+                    </div>
+                </div>
+                <div class="panel mt-16">
+                    <div class="panel-header">
+                        <h2>GPIO Outputs</h2>
+                        <span class="panel-sub">MQTT topics → Raspberry Pi pins (HIGH/LOW test buttons publish to the topic)</span>
+                        <button class="btn-ghost btn-sm" onclick="addGpioOutput()">+ Add Output</button>
+                    </div>
+                    <div id="gpio-outputs-list" class="gpio-list">
+                        <div class="empty-state">No outputs configured</div>
+                    </div>
+                </div>
+                <div class="panel mt-16 settings-panel">
+                    <div class="form-actions" style="border-top: none; padding-top: 16px;">
+                        <button class="btn-primary" onclick="saveGpioConfig()">Save GPIO Config</button>
+                        <span class="save-status" id="gpio-save-status"></span>
+                        <span class="hint" style="margin-left:auto">tuya_mqtt hot-reloads within ~2 seconds — no restart needed</span>
                     </div>
                 </div>
             </div>

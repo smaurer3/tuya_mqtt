@@ -27,6 +27,7 @@ ALIASES_FILE = os.path.join(HERE, "aliases.json")
 MQTT_CONFIG_FILE = os.path.join(HERE, "mqtt_config.json")
 ADMIN_CONFIG_FILE = os.path.join(HERE, "admin_config.json")
 SNAPSHOT_FILE = os.path.join(HERE, "snapshot.json")
+GPIO_CONFIG_FILE = os.path.join(HERE, "gpio_config.json")
 STATIC_DIR = os.path.join(HERE, "static")
 
 
@@ -67,6 +68,10 @@ def load_admin_config():
         "tinytuya_json_path": "/home/pi/tinytuya.json",
         "admin_port": 8088
     })
+
+
+def load_gpio_config():
+    return load_json(GPIO_CONFIG_FILE, {"inputs": [], "outputs": []})
 
 
 def load_tinytuya_creds():
@@ -120,6 +125,10 @@ mqtt_client: Optional[mqtt.Client] = None
 mqtt_connected = False
 # Cache state by dev_id (not alias) — UI keys on dev_id
 state_cache: dict = {}  # dev_id -> {switch: "on"|"off"}
+# GPIO state caches
+gpio_input_topics: Set[str] = set()        # currently-subscribed input topics
+gpio_input_state: dict = {}                # input name -> last payload
+gpio_output_state: dict = {}               # output name -> "on"/"off" we last commanded
 
 
 def _resolve_topic_to_dev_id(token: str) -> Optional[str]:
@@ -138,7 +147,31 @@ def on_mqtt_connect(client, userdata, flags, rc):
     print(f"[ADMIN-MQTT] {'Connected' if mqtt_connected else f'Failed rc={rc}'}")
     if mqtt_connected:
         client.subscribe("tuya/+/+/state")
+        # Resubscribe to all configured GPIO input topics
+        global gpio_input_topics
+        gpio_input_topics = _current_gpio_input_topics()
+        for topic in gpio_input_topics:
+            client.subscribe(topic)
     broadcast_async({"type": "mqtt_status", "connected": mqtt_connected})
+
+
+def _current_gpio_input_topics():
+    return {inp.get("topic", "") for inp in load_gpio_config().get("inputs", []) if inp.get("topic")}
+
+
+def resubscribe_gpio_inputs():
+    """Adjust admin's input-topic subs to match current gpio_config.json."""
+    global gpio_input_topics
+    if mqtt_client is None:
+        return
+    new_topics = _current_gpio_input_topics()
+    for t in (gpio_input_topics - new_topics):
+        try: mqtt_client.unsubscribe(t)
+        except Exception: pass
+    for t in (new_topics - gpio_input_topics):
+        try: mqtt_client.subscribe(t)
+        except Exception: pass
+    gpio_input_topics = new_topics
 
 
 def on_mqtt_disconnect(client, userdata, rc):
@@ -149,18 +182,30 @@ def on_mqtt_disconnect(client, userdata, rc):
 
 
 def on_mqtt_message(client, userdata, msg):
+    payload = msg.payload.decode(errors="ignore").strip()
+
+    # GPIO input topic?
+    for inp in load_gpio_config().get("inputs", []):
+        if inp.get("topic") == msg.topic:
+            name = inp.get("name") or msg.topic
+            gpio_input_state[name] = payload
+            broadcast_async({
+                "type": "gpio_input", "name": name, "topic": msg.topic, "value": payload
+            })
+            return
+
+    # Tuya state?
     parts = msg.topic.split("/")
-    if len(parts) != 4 or parts[0] != "tuya" or parts[3] != "state":
-        return
-    token, switch = parts[1], parts[2]
-    dev_id = _resolve_topic_to_dev_id(token)
-    if not dev_id:
-        return
-    value = msg.payload.decode(errors="ignore").strip().lower()
-    state_cache.setdefault(dev_id, {})[switch] = value
-    broadcast_async({
-        "type": "state", "dev_id": dev_id, "switch": switch, "value": value
-    })
+    if len(parts) == 4 and parts[0] == "tuya" and parts[3] == "state":
+        token, switch = parts[1], parts[2]
+        dev_id = _resolve_topic_to_dev_id(token)
+        if not dev_id:
+            return
+        value = payload.lower()
+        state_cache.setdefault(dev_id, {})[switch] = value
+        broadcast_async({
+            "type": "state", "dev_id": dev_id, "switch": switch, "value": value
+        })
 
 
 def start_mqtt():
@@ -492,6 +537,59 @@ async def api_service_status():
     return {"status": service_status()}
 
 
+# ── GPIO API ──────────────────────────────────────────────────────────────────
+class GpioInput(BaseModel):
+    name: str
+    pin: int
+    pull: str = "up"
+    topic: str
+    payload_high: str = "high"
+    payload_low: str = "low"
+    qos: int = 1
+    retain: bool = True
+
+
+class GpioOutput(BaseModel):
+    name: str
+    pin: int
+    topic: str
+    payload_on: str = "high"
+    payload_off: str = "low"
+    active_high: bool = True
+    initial: str = "low"
+
+
+class GpioConfigPayload(BaseModel):
+    inputs: list[GpioInput]
+    outputs: list[GpioOutput]
+
+
+@app.get("/api/gpio-config")
+async def api_get_gpio_config():
+    return {**load_gpio_config(),
+            "input_state": gpio_input_state,
+            "output_state": gpio_output_state}
+
+
+@app.post("/api/gpio-config")
+async def api_save_gpio_config(payload: GpioConfigPayload):
+    cfg = payload.dict()
+
+    # Validate uniqueness — duplicate names or pins are surprises waiting to happen
+    names = [i["name"] for i in cfg["inputs"]] + [o["name"] for o in cfg["outputs"]]
+    if len(names) != len(set(names)):
+        raise HTTPException(400, "GPIO names must be unique across inputs and outputs")
+    pins = [i["pin"] for i in cfg["inputs"]] + [o["pin"] for o in cfg["outputs"]]
+    if len(pins) != len(set(pins)):
+        raise HTTPException(400, "GPIO pin numbers must be unique across inputs and outputs")
+
+    save_json(GPIO_CONFIG_FILE, cfg)
+    # Update admin's own input subs immediately (tuya_mqtt will hot-reload its own
+    # within ~2s via its file watcher)
+    resubscribe_gpio_inputs()
+    return {"ok": True}
+
+
 # ── WebSocket ─────────────────────────────────────────────────────────────────
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
@@ -503,6 +601,8 @@ async def websocket_endpoint(ws: WebSocket):
             "mqtt_connected": mqtt_connected,
             "service": service_status(),
             "state_cache": state_cache,
+            "gpio_input_state": gpio_input_state,
+            "gpio_output_state": gpio_output_state,
         })
         while True:
             data = await ws.receive_json()
@@ -521,6 +621,20 @@ async def handle_ws(ws: WebSocket, data: dict):
         await ws.send_json({
             "type": "command_ack", "dev": token, "switch": switch, "on": on, "ok": ok
         })
+    elif t == "gpio_command":
+        name = data.get("name")
+        cmd = data.get("cmd")  # "on" or "off"
+        ok = False
+        for out in load_gpio_config().get("outputs", []):
+            if out.get("name") == name:
+                payload = out.get("payload_on" if cmd == "on" else "payload_off",
+                                  "high" if cmd == "on" else "low")
+                if mqtt_client is not None:
+                    mqtt_client.publish(out["topic"], payload)
+                    gpio_output_state[name] = cmd
+                    ok = True
+                break
+        await ws.send_json({"type": "gpio_command_ack", "name": name, "cmd": cmd, "ok": ok})
     elif t == "ping":
         await ws.send_json({"type": "pong", "t": time.time()})
 

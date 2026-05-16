@@ -4,6 +4,9 @@ let wsReconnectTimer = null;
 let devices = [];                  // [{name, id, ip, version, alias, state}]
 let aliasDraft = {};               // dev_id -> alias (uncommitted edits)
 let switchesShown = {};            // dev_id -> Set<switch>
+let gpioConfigDraft = null;        // {inputs, outputs} — staged edits
+let gpioInputState = {};           // name -> last payload (live)
+let gpioOutputState = {};          // name -> "on"/"off" we last commanded
 
 // ── WebSocket ─────────────────────────────────────────────────────────────
 function connectWs() {
@@ -48,7 +51,10 @@ function handleWs(msg) {
                     updateSwitchState(devId, sw, val, /*render*/false);
                 }
             }
+            gpioInputState = msg.gpio_input_state || {};
+            gpioOutputState = msg.gpio_output_state || {};
             renderDevices();
+            renderGpio();
             break;
         case "mqtt_status":
             setMqttDot(msg.connected);
@@ -67,6 +73,14 @@ function handleWs(msg) {
             break;
         case "devices_changed":
             loadDevices();
+            break;
+        case "gpio_input":
+            gpioInputState[msg.name] = msg.value;
+            renderGpio();
+            break;
+        case "gpio_command_ack":
+            if (msg.ok) gpioOutputState[msg.name] = msg.cmd;
+            renderGpio();
             break;
     }
 }
@@ -321,6 +335,215 @@ async function restartService() {
     }
 }
 
+// ── GPIO ──────────────────────────────────────────────────────────────────
+async function loadGpioConfig() {
+    try {
+        const r = await fetch("/api/gpio-config");
+        const j = await r.json();
+        gpioConfigDraft = {
+            inputs: (j.inputs || []).map(o => ({...o})),
+            outputs: (j.outputs || []).map(o => ({...o})),
+        };
+        gpioInputState = j.input_state || gpioInputState;
+        gpioOutputState = j.output_state || gpioOutputState;
+        renderGpio();
+    } catch (e) {
+        console.error("loadGpioConfig:", e);
+    }
+}
+
+function ensureGpioDraft() {
+    if (!gpioConfigDraft) gpioConfigDraft = {inputs: [], outputs: []};
+    return gpioConfigDraft;
+}
+
+function addGpioInput() {
+    const d = ensureGpioDraft();
+    d.inputs.push({
+        name: "", pin: 0, pull: "up", topic: "",
+        payload_high: "high", payload_low: "low", qos: 1, retain: true,
+    });
+    renderGpio();
+}
+
+function addGpioOutput() {
+    const d = ensureGpioDraft();
+    d.outputs.push({
+        name: "", pin: 0, topic: "",
+        payload_on: "high", payload_off: "low",
+        active_high: true, initial: "low",
+    });
+    renderGpio();
+}
+
+function deleteGpioInput(i) {
+    gpioConfigDraft.inputs.splice(i, 1);
+    renderGpio();
+}
+
+function deleteGpioOutput(i) {
+    gpioConfigDraft.outputs.splice(i, 1);
+    renderGpio();
+}
+
+function onGpioFieldChange(kind, idx, field, value) {
+    const arr = kind === "input" ? gpioConfigDraft.inputs : gpioConfigDraft.outputs;
+    let v = value;
+    if (field === "pin" || field === "qos") v = parseInt(value, 10) || 0;
+    if (field === "retain" || field === "active_high") v = !!value;
+    arr[idx][field] = v;
+}
+
+function renderGpio() {
+    const inRoot = document.getElementById("gpio-inputs-list");
+    const outRoot = document.getElementById("gpio-outputs-list");
+    if (!inRoot || !outRoot) return;
+    const d = ensureGpioDraft();
+
+    inRoot.innerHTML = d.inputs.length ? "" : '<div class="empty-state">No inputs configured</div>';
+    d.inputs.forEach((inp, i) => {
+        const liveVal = gpioInputState[inp.name];
+        const liveOn = liveVal && liveVal === inp.payload_high;
+        const card = document.createElement("div");
+        card.className = "gpio-card";
+        card.innerHTML = `
+            <div class="gpio-card-top">
+                <div class="gpio-card-state ${liveVal ? (liveOn ? "on" : "off-state") : ""}">
+                    <span class="gpio-indicator"></span>
+                    <span class="gpio-live-value">${liveVal ? escapeHtml(liveVal) : "—"}</span>
+                </div>
+                <button class="btn-danger btn-sm" onclick="deleteGpioInput(${i})">Delete</button>
+            </div>
+            <div class="form-grid gpio-grid">
+                <div class="form-group"><label>Name</label>
+                    <input type="text" value="${escapeAttr(inp.name)}" placeholder="alarm"
+                        oninput="onGpioFieldChange('input', ${i}, 'name', this.value)">
+                </div>
+                <div class="form-group"><label>Pin (BCM)</label>
+                    <input type="number" value="${inp.pin}" min="0" max="40"
+                        oninput="onGpioFieldChange('input', ${i}, 'pin', this.value)">
+                </div>
+                <div class="form-group"><label>Pull</label>
+                    <select onchange="onGpioFieldChange('input', ${i}, 'pull', this.value)">
+                        <option value="up" ${inp.pull==="up"?"selected":""}>Up</option>
+                        <option value="down" ${inp.pull==="down"?"selected":""}>Down</option>
+                        <option value="none" ${inp.pull==="none"?"selected":""}>None</option>
+                    </select>
+                </div>
+                <div class="form-group form-group-wide"><label>MQTT Topic</label>
+                    <input type="text" value="${escapeAttr(inp.topic)}" placeholder="alarm/state"
+                        oninput="onGpioFieldChange('input', ${i}, 'topic', this.value)">
+                </div>
+                <div class="form-group"><label>Payload when HIGH</label>
+                    <input type="text" value="${escapeAttr(inp.payload_high)}" placeholder="high"
+                        oninput="onGpioFieldChange('input', ${i}, 'payload_high', this.value)">
+                </div>
+                <div class="form-group"><label>Payload when LOW</label>
+                    <input type="text" value="${escapeAttr(inp.payload_low)}" placeholder="low"
+                        oninput="onGpioFieldChange('input', ${i}, 'payload_low', this.value)">
+                </div>
+                <div class="form-group"><label>QoS</label>
+                    <select onchange="onGpioFieldChange('input', ${i}, 'qos', this.value)">
+                        <option value="0" ${inp.qos===0?"selected":""}>0</option>
+                        <option value="1" ${inp.qos===1?"selected":""}>1</option>
+                        <option value="2" ${inp.qos===2?"selected":""}>2</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Retain</label>
+                    <select onchange="onGpioFieldChange('input', ${i}, 'retain', this.value === 'true')">
+                        <option value="true" ${inp.retain?"selected":""}>Yes</option>
+                        <option value="false" ${!inp.retain?"selected":""}>No</option>
+                    </select>
+                </div>
+            </div>
+        `;
+        inRoot.appendChild(card);
+    });
+
+    outRoot.innerHTML = d.outputs.length ? "" : '<div class="empty-state">No outputs configured</div>';
+    d.outputs.forEach((out, i) => {
+        const cmd = gpioOutputState[out.name];
+        const card = document.createElement("div");
+        card.className = "gpio-card";
+        card.innerHTML = `
+            <div class="gpio-card-top">
+                <div class="gpio-card-state ${cmd === "on" ? "on" : (cmd === "off" ? "off-state" : "")}">
+                    <span class="gpio-indicator"></span>
+                    <span class="gpio-live-value">${cmd ? cmd.toUpperCase() : "—"}</span>
+                </div>
+                <div class="gpio-test-buttons">
+                    <button class="btn-switch btn-on" onclick="sendGpioCommand('${escapeAttr(out.name)}', 'on')">${escapeHtml(out.payload_on || "HIGH").toUpperCase()}</button>
+                    <button class="btn-switch btn-off" onclick="sendGpioCommand('${escapeAttr(out.name)}', 'off')">${escapeHtml(out.payload_off || "LOW").toUpperCase()}</button>
+                </div>
+                <button class="btn-danger btn-sm" onclick="deleteGpioOutput(${i})">Delete</button>
+            </div>
+            <div class="form-grid gpio-grid">
+                <div class="form-group"><label>Name</label>
+                    <input type="text" value="${escapeAttr(out.name)}" placeholder="relay_1"
+                        oninput="onGpioFieldChange('output', ${i}, 'name', this.value)">
+                </div>
+                <div class="form-group"><label>Pin (BCM)</label>
+                    <input type="number" value="${out.pin}" min="0" max="40"
+                        oninput="onGpioFieldChange('output', ${i}, 'pin', this.value)">
+                </div>
+                <div class="form-group"><label>Active</label>
+                    <select onchange="onGpioFieldChange('output', ${i}, 'active_high', this.value === 'true')">
+                        <option value="true" ${out.active_high?"selected":""}>Active HIGH</option>
+                        <option value="false" ${!out.active_high?"selected":""}>Active LOW (relays etc.)</option>
+                    </select>
+                </div>
+                <div class="form-group form-group-wide"><label>MQTT Topic</label>
+                    <input type="text" value="${escapeAttr(out.topic)}" placeholder="gpio/relay_1/set"
+                        oninput="onGpioFieldChange('output', ${i}, 'topic', this.value)">
+                </div>
+                <div class="form-group"><label>Payload to turn ON</label>
+                    <input type="text" value="${escapeAttr(out.payload_on)}" placeholder="high"
+                        oninput="onGpioFieldChange('output', ${i}, 'payload_on', this.value)">
+                </div>
+                <div class="form-group"><label>Payload to turn OFF</label>
+                    <input type="text" value="${escapeAttr(out.payload_off)}" placeholder="low"
+                        oninput="onGpioFieldChange('output', ${i}, 'payload_off', this.value)">
+                </div>
+                <div class="form-group"><label>Initial state at boot</label>
+                    <select onchange="onGpioFieldChange('output', ${i}, 'initial', this.value)">
+                        <option value="low" ${out.initial==="low"?"selected":""}>LOW</option>
+                        <option value="high" ${out.initial==="high"?"selected":""}>HIGH</option>
+                    </select>
+                </div>
+            </div>
+        `;
+        outRoot.appendChild(card);
+    });
+}
+
+function sendGpioCommand(name, cmd) {
+    wsSend({type: "gpio_command", name, cmd});
+}
+
+async function saveGpioConfig() {
+    const status = document.getElementById("gpio-save-status");
+    status.classList.remove("error");
+    status.textContent = "Saving…";
+    try {
+        const r = await fetch("/api/gpio-config", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(gpioConfigDraft || {inputs: [], outputs: []}),
+        });
+        if (r.ok) {
+            status.textContent = "Saved";
+        } else {
+            const err = await r.json().catch(() => ({}));
+            status.classList.add("error");
+            status.textContent = "Failed: " + (err.detail || r.statusText);
+        }
+    } catch (e) {
+        status.classList.add("error");
+        status.textContent = "Failed: " + e;
+    }
+    setTimeout(() => { status.textContent = ""; status.classList.remove("error"); }, 4000);
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────
 async function loadSettings() {
     try {
@@ -412,6 +635,7 @@ function setupTabs() {
                 c.classList.toggle("active", c.id === "tab-" + tab));
             if (tab === "settings") loadSettings();
             if (tab === "devices") loadDevices();
+            if (tab === "gpio") loadGpioConfig();
         });
     });
 }
