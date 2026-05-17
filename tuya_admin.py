@@ -268,8 +268,25 @@ def _discovery_worker():
         )
         cloud_devs = cloud.getdevices()
         if isinstance(cloud_devs, dict) and "Error" in cloud_devs:
+            # tinytuya returns {Error, Err, Payload} on cloud errors. The
+            # human-meaningful explanation usually lives in Payload.msg with
+            # the canonical Tuya error code in Payload.code. Surface all of it
+            # so the user doesn't have to drop to the wizard CLI to debug.
+            short = cloud_devs.get("Error") or "Unknown error"
+            err_code = cloud_devs.get("Err")
+            payload = cloud_devs.get("Payload") or {}
+            tuya_code = payload.get("code") if isinstance(payload, dict) else None
+            tuya_msg = payload.get("msg") if isinstance(payload, dict) else None
+            parts = [short]
+            if tuya_code is not None or tuya_msg:
+                parts.append(f"Tuya code {tuya_code}: {tuya_msg}" if tuya_code else str(tuya_msg))
+            if err_code:
+                parts.append(f"(Err={err_code})")
+            # Hint for the most common cause we've actually seen
+            if str(tuya_code) == "28841002":
+                parts.append("Your Tuya IoT Cloud Development plan has expired — renew at iot.tuya.com.")
             broadcast_async({"type": "discovery", "stage": "error",
-                             "message": f"Cloud error: {cloud_devs.get('Error')}"})
+                             "message": "Cloud error: " + " — ".join(parts)})
             return
         broadcast_async({"type": "discovery", "stage": "cloud_done",
                          "message": f"Got {len(cloud_devs)} device(s) from cloud"})
