@@ -824,9 +824,19 @@ async def api_get_pdu_config():
         thor["password_set"] = True
     else:
         thor = dict(thor); thor["password_set"] = False
+    # Always surface all 8 THOR RF11 ports; fill any missing with defaults so
+    # a partial saved config can't ever hide a physical outlet from the UI
+    existing = {o.get("port"): o for o in (cfg.get("outlets") or []) if o.get("port")}
+    full_outlets = []
+    for i in range(1, 9):
+        port = f"p{i}"
+        full_outlets.append(existing.get(port) or {
+            "port": port, "name": "", "tuya_alias": "",
+            "tuya_switch": "1", "on_delay_seconds": 0,
+        })
     return {
         "thor": thor,
-        "outlets": cfg.get("outlets", []),
+        "outlets": full_outlets,
         "outlet_status": pdu_outlet_status,
         "outlet_current": pdu_outlet_current,
         "reachable": pdu_reachable,
