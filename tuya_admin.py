@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import paho.mqtt.client as mqtt
+import requests
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +29,7 @@ MQTT_CONFIG_FILE = os.path.join(HERE, "mqtt_config.json")
 ADMIN_CONFIG_FILE = os.path.join(HERE, "admin_config.json")
 SNAPSHOT_FILE = os.path.join(HERE, "snapshot.json")
 GPIO_CONFIG_FILE = os.path.join(HERE, "gpio_config.json")
+PDU_CONFIG_FILE = os.path.join(HERE, "pdu_config.json")
 STATIC_DIR = os.path.join(HERE, "static")
 
 
@@ -72,6 +74,28 @@ def load_admin_config():
 
 def load_gpio_config():
     return load_json(GPIO_CONFIG_FILE, {"inputs": [], "outputs": []})
+
+
+def load_pdu_config():
+    # Seeded from the old /var/controlHTML/power/pwr_ws.py so first-run behaviour
+    # matches the retired service. User configures tuya_alias via the UI.
+    return load_json(PDU_CONFIG_FILE, {
+        "thor": {
+            "base_url": "http://192.168.10.129",
+            "username": "admin",
+            "password": "THORRF11",
+        },
+        "outlets": [
+            {"port": "p1", "name": "",                "tuya_alias": "", "tuya_switch": "1", "on_delay_seconds": 0},
+            {"port": "p2", "name": "HDMI Extender 1", "tuya_alias": "", "tuya_switch": "1", "on_delay_seconds": 0},
+            {"port": "p3", "name": "HDMI Extender 2", "tuya_alias": "", "tuya_switch": "1", "on_delay_seconds": 0},
+            {"port": "p4", "name": "ATEM Mini",       "tuya_alias": "", "tuya_switch": "1", "on_delay_seconds": 30},
+            {"port": "p5", "name": "Sony Camera 1",   "tuya_alias": "", "tuya_switch": "1", "on_delay_seconds": 0},
+            {"port": "p6", "name": "Sony Camera 2",   "tuya_alias": "", "tuya_switch": "1", "on_delay_seconds": 0},
+            {"port": "p7", "name": "Clearone USB",    "tuya_alias": "", "tuya_switch": "1", "on_delay_seconds": 0},
+            {"port": "p8", "name": "Clearone 880",    "tuya_alias": "", "tuya_switch": "1", "on_delay_seconds": 0},
+        ],
+    })
 
 
 def load_tinytuya_creds():
@@ -129,6 +153,11 @@ state_cache: dict = {}  # dev_id -> {switch: "on"|"off"}
 gpio_input_topics: Set[str] = set()        # currently-subscribed input topics
 gpio_input_state: dict = {}                # input name -> last payload
 gpio_output_state: dict = {}               # output name -> "on"/"off" we last commanded
+# PDU (THOR RF11) mirror state
+pdu_last_state: dict = {}                  # dev_id -> {switch: "on"|"off"} — edge detection
+pdu_last_state_lock = threading.Lock()
+pdu_outlet_status: dict = {}               # port -> "on"/"off" — last commanded
+pdu_reachable: Optional[bool] = None       # None=unknown, True/False from last HTTP
 
 
 def _resolve_topic_to_dev_id(token: str) -> Optional[str]:
@@ -206,6 +235,7 @@ def on_mqtt_message(client, userdata, msg):
         broadcast_async({
             "type": "state", "dev_id": dev_id, "switch": switch, "value": value
         })
+        pdu_handle_state_change(dev_id, switch, value)
 
 
 def start_mqtt():
@@ -610,6 +640,134 @@ async def api_save_gpio_config(payload: GpioConfigPayload):
     return {"ok": True}
 
 
+# ── PDU (THOR RF11) ───────────────────────────────────────────────────────────
+# Watches the tuya/*/*/state MQTT stream and mirrors selected switches onto a
+# THOR RF11 PDU's outlets via its /cpan.cgi HTTP API. Per-outlet on-delay lets
+# you stagger power-up (e.g. wait 30 s before the ATEM Mini boots). Replaces
+# the standalone pwr_ws.py service.
+def thor_set_outlet(port, value):
+    """Set one PDU outlet on the THOR RF11 web interface. value is "1" or "0"."""
+    global pdu_reachable
+    cfg = load_pdu_config().get("thor", {})
+    base = (cfg.get("base_url") or "").rstrip("/")
+    if not base or not port:
+        return False
+    url = f"{base}/cpan.cgi?param={port}&value={value}"
+    try:
+        r = requests.get(url, auth=(cfg.get("username", ""), cfg.get("password", "")),
+                         timeout=5)
+        ok = r.ok
+        pdu_reachable = ok
+        pdu_outlet_status[port] = "on" if value == "1" else "off"
+        broadcast_async({"type": "pdu_outlet", "port": port,
+                         "value": pdu_outlet_status[port], "ok": ok,
+                         "reachable": pdu_reachable})
+        return ok
+    except Exception as e:
+        pdu_reachable = False
+        broadcast_async({"type": "pdu_outlet", "port": port, "value": None,
+                         "ok": False, "reachable": False, "error": str(e)})
+        print(f"[PDU] {port}={value} error: {e}")
+        return False
+
+
+def _pdu_apply_with_delay(port, value_str, delay, name):
+    if delay > 0 and value_str == "1":
+        print(f"[PDU] {name} ({port}) → ON in {delay}s")
+        time.sleep(delay)
+    ok = thor_set_outlet(port, value_str)
+    print(f"[PDU] {name} ({port}) → {value_str} {'OK' if ok else 'FAIL'}")
+
+
+def _pdu_resolve_source(source):
+    """Given an alias (or a raw dev_id) return the canonical dev_id."""
+    if not source:
+        return None
+    return load_aliases().get(source, source)
+
+
+def pdu_handle_state_change(dev_id, switch, value):
+    """Called from on_mqtt_message. On a rising/falling edge for any outlet
+    configured to mirror (dev_id, switch), fire the PDU command (with on-delay
+    applied only on the rising edge)."""
+    switch = str(switch)
+    with pdu_last_state_lock:
+        prev = pdu_last_state.setdefault(dev_id, {}).get(switch)
+        pdu_last_state[dev_id][switch] = value
+    if prev == value:
+        return  # repeated same state — nothing to do
+
+    for outlet in load_pdu_config().get("outlets", []):
+        if _pdu_resolve_source(outlet.get("tuya_alias")) != dev_id:
+            continue
+        if str(outlet.get("tuya_switch", "1")) != switch:
+            continue
+        port = outlet.get("port")
+        if not port:
+            continue
+        delay = int(outlet.get("on_delay_seconds") or 0)
+        value_str = "1" if value == "on" else "0"
+        threading.Thread(
+            target=_pdu_apply_with_delay,
+            args=(port, value_str, delay, outlet.get("name") or port),
+            daemon=True,
+        ).start()
+
+
+# ── PDU API ───────────────────────────────────────────────────────────────────
+class ThorSettings(BaseModel):
+    base_url: str
+    username: str
+    password: str = ""
+
+
+class PduOutlet(BaseModel):
+    port: str
+    name: str = ""
+    tuya_alias: str = ""
+    tuya_switch: str = "1"
+    on_delay_seconds: int = 0
+
+
+class PduConfigPayload(BaseModel):
+    thor: ThorSettings
+    outlets: list[PduOutlet]
+
+
+@app.get("/api/pdu-config")
+async def api_get_pdu_config():
+    cfg = load_pdu_config()
+    # Redact password on GET — UI leaves blank to keep existing
+    thor = cfg.get("thor", {}) or {}
+    if thor.get("password"):
+        thor = dict(thor)
+        thor["password"] = ""
+        thor["password_set"] = True
+    else:
+        thor = dict(thor); thor["password_set"] = False
+    return {
+        "thor": thor,
+        "outlets": cfg.get("outlets", []),
+        "outlet_status": pdu_outlet_status,
+        "reachable": pdu_reachable,
+    }
+
+
+@app.post("/api/pdu-config")
+async def api_save_pdu_config(payload: PduConfigPayload):
+    d = payload.dict()
+    # Preserve existing password if new is blank (matches other config endpoints)
+    existing = load_pdu_config().get("thor", {}) or {}
+    if not d["thor"].get("password") and existing.get("password"):
+        d["thor"]["password"] = existing["password"]
+    # Sanitise: on_delay non-negative
+    for o in d["outlets"]:
+        o["on_delay_seconds"] = max(0, int(o.get("on_delay_seconds") or 0))
+        o["tuya_switch"] = str(o.get("tuya_switch") or "1")
+    save_json(PDU_CONFIG_FILE, d)
+    return {"ok": True}
+
+
 # ── WebSocket ─────────────────────────────────────────────────────────────────
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
@@ -623,6 +781,8 @@ async def websocket_endpoint(ws: WebSocket):
             "state_cache": state_cache,
             "gpio_input_state": gpio_input_state,
             "gpio_output_state": gpio_output_state,
+            "pdu_outlet_status": pdu_outlet_status,
+            "pdu_reachable": pdu_reachable,
         })
         while True:
             data = await ws.receive_json()
@@ -655,6 +815,11 @@ async def handle_ws(ws: WebSocket, data: dict):
                     ok = True
                 break
         await ws.send_json({"type": "gpio_command_ack", "name": name, "cmd": cmd, "ok": ok})
+    elif t == "pdu_command":
+        port = data.get("port")
+        on = bool(data.get("on"))
+        ok = thor_set_outlet(port, "1" if on else "0")
+        await ws.send_json({"type": "pdu_command_ack", "port": port, "on": on, "ok": ok})
     elif t == "ping":
         await ws.send_json({"type": "pong", "t": time.time()})
 

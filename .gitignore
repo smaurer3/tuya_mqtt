@@ -10,6 +10,7 @@ aliases.json
 gpio_config.json
 mqtt_config.json
 admin_config.json
+pdu_config.json
 
 # Python
 __pycache__/

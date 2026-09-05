@@ -430,6 +430,32 @@ html, body {
 /* ── MONO HELPER ── */
 .mono { font-family: var(--font-mono); }
 
+/* ── PDU ── */
+.pdu-alias-select, .pdu-num-input {
+    background: var(--bg-input); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text);
+    font-family: var(--font-mono); font-size: 12px;
+    padding: 4px 8px; outline: none;
+    transition: border-color var(--transition);
+}
+.pdu-alias-select { min-width: 160px; }
+.pdu-num-input { width: 74px; }
+.pdu-alias-select:focus, .pdu-num-input:focus { border-color: var(--border-focus); }
+.pdu-state-chip {
+    display: inline-block; font-family: var(--font-mono); font-size: 11px;
+    padding: 3px 10px; border-radius: 4px;
+    background: var(--bg-input); border: 1px solid var(--border);
+    color: var(--text-muted); letter-spacing: 0.06em;
+}
+.pdu-state-chip.pdu-on {
+    color: var(--gate-on); border-color: var(--gate-on);
+    background: rgba(37,99,235,0.12); box-shadow: 0 0 8px var(--gate-on-glow);
+}
+.pdu-state-chip.pdu-off {
+    color: var(--text-dim);
+}
+.pdu-test-buttons { display: flex; gap: 6px; }
+
 /* ── GPIO ── */
 .gpio-list { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
 .gpio-card {

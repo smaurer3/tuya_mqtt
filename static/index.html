@@ -22,6 +22,7 @@
                     <button class="nav-btn active" data-tab="devices">Devices</button>
                     <button class="nav-btn" data-tab="discover">Discover</button>
                     <button class="nav-btn" data-tab="gpio">GPIO</button>
+                    <button class="nav-btn" data-tab="pdu">PDU</button>
                     <button class="nav-btn" data-tab="settings">Settings</button>
                     <button class="nav-btn" data-tab="help">? Help</button>
                 </nav>
@@ -107,6 +108,56 @@
                         <span class="save-status" id="gpio-save-status"></span>
                         <span class="hint" style="margin-left:auto">tuya_mqtt hot-reloads within ~2 seconds — no restart needed</span>
                     </div>
+                </div>
+            </div>
+
+            <!-- PDU TAB -->
+            <div class="tab-content" id="tab-pdu">
+                <div class="panel settings-panel">
+                    <div class="panel-header">
+                        <h2>THOR RF11 Connection</h2>
+                        <span class="panel-sub">HTTP endpoint for the PDU's <span class="mono">/cpan.cgi</span> control</span>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group form-group-wide">
+                            <label>Base URL</label>
+                            <input type="text" id="pdu-base-url" placeholder="http://192.168.10.129">
+                        </div>
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input type="text" id="pdu-user" placeholder="admin">
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input type="password" id="pdu-pass" placeholder="leave blank to keep existing">
+                            <span class="hint" id="pdu-pass-hint"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>Outlets</h2>
+                        <span class="panel-sub">Map each outlet to a Tuya alias — its on/off will mirror that switch. On-delay applies only on rising edges (turn-on).</span>
+                        <button class="btn-primary btn-sm" onclick="savePduConfig()">Save PDU Config</button>
+                        <span class="save-status" id="pdu-save-status"></span>
+                    </div>
+                    <table class="data-table" id="pdu-table">
+                        <thead>
+                            <tr>
+                                <th>Port</th>
+                                <th>Name</th>
+                                <th>Sync with (Tuya alias)</th>
+                                <th>Switch</th>
+                                <th>On delay (s)</th>
+                                <th>Last state</th>
+                                <th>Test</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pdu-tbody">
+                            <tr><td colspan="7" class="empty-state">Loading…</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

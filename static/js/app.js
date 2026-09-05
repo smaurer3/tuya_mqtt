@@ -4,6 +4,9 @@ let wsReconnectTimer = null;
 let devices = [];                  // [{name, id, ip, version, alias, state}]
 let aliasDraft = {};               // dev_id -> alias (uncommitted edits)
 let switchesShown = {};            // dev_id -> Set<switch>
+let pduConfig = null;              // {thor, outlets} — staged locally, saved on demand
+let pduOutletStatus = {};          // port -> "on"/"off"
+let pduReachable = null;           // last known health of the PDU HTTP endpoint
 let gpioConfigDraft = null;        // {inputs, outputs} — staged edits
 let gpioInputState = {};           // name -> last payload (live)
 let gpioOutputState = {};          // name -> "on"/"off" we last commanded
@@ -53,8 +56,11 @@ function handleWs(msg) {
             }
             gpioInputState = msg.gpio_input_state || {};
             gpioOutputState = msg.gpio_output_state || {};
+            pduOutletStatus = msg.pdu_outlet_status || {};
+            pduReachable = msg.pdu_reachable;
             renderDevices();
             renderGpio();
+            renderPdu();
             break;
         case "mqtt_status":
             setMqttDot(msg.connected);
@@ -81,6 +87,14 @@ function handleWs(msg) {
         case "gpio_command_ack":
             if (msg.ok) gpioOutputState[msg.name] = msg.cmd;
             renderGpio();
+            break;
+        case "pdu_outlet":
+            if (msg.value) pduOutletStatus[msg.port] = msg.value;
+            if (msg.reachable !== undefined) pduReachable = msg.reachable;
+            renderPdu();
+            break;
+        case "pdu_command_ack":
+            // outlet_status is already updated via the pdu_outlet broadcast
             break;
     }
 }
@@ -544,6 +558,126 @@ async function saveGpioConfig() {
     setTimeout(() => { status.textContent = ""; status.classList.remove("error"); }, 4000);
 }
 
+// ── PDU (THOR RF11) ───────────────────────────────────────────────────────
+async function loadPduConfig() {
+    try {
+        const r = await fetch("/api/pdu-config");
+        const j = await r.json();
+        pduConfig = {
+            thor: {
+                base_url: j.thor?.base_url || "",
+                username: j.thor?.username || "",
+                password: "",
+                password_set: !!j.thor?.password_set,
+            },
+            outlets: (j.outlets || []).map(o => ({...o})),
+        };
+        pduOutletStatus = j.outlet_status || pduOutletStatus;
+        pduReachable = j.reachable != null ? j.reachable : pduReachable;
+        // Populate the settings form
+        document.getElementById("pdu-base-url").value = pduConfig.thor.base_url;
+        document.getElementById("pdu-user").value = pduConfig.thor.username;
+        document.getElementById("pdu-pass").value = "";
+        document.getElementById("pdu-pass-hint").textContent =
+            pduConfig.thor.password_set ? "Password is set — leave blank to keep" : "Password not yet set";
+        renderPdu();
+    } catch (e) { console.error("loadPduConfig:", e); }
+}
+
+function _pduAliasOptions(selected) {
+    // Aliases come from the devices already loaded on the Devices tab. If the
+    // user hasn't visited that tab yet, we still have them from the initial
+    // /api/devices call in loadDevices.
+    const aliases = devices.map(d => d.alias).filter(Boolean).sort();
+    const opts = ['<option value="">— none —</option>'];
+    for (const a of aliases) {
+        const sel = a === selected ? " selected" : "";
+        opts.push(`<option value="${escapeAttr(a)}"${sel}>${escapeHtml(a)}</option>`);
+    }
+    // If the config points at something not in the alias list, keep it visible
+    if (selected && !aliases.includes(selected)) {
+        opts.push(`<option value="${escapeAttr(selected)}" selected>${escapeHtml(selected)} (missing)</option>`);
+    }
+    return opts.join("");
+}
+
+function renderPdu() {
+    const tbody = document.getElementById("pdu-tbody");
+    if (!tbody) return;
+    if (!pduConfig) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Loading…</td></tr>';
+        return;
+    }
+    if (!pduConfig.outlets.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No outlets configured</td></tr>';
+        return;
+    }
+    tbody.innerHTML = pduConfig.outlets.map((o, i) => {
+        const state = pduOutletStatus[o.port];
+        const stateCls = state === "on" ? "pdu-on" : (state === "off" ? "pdu-off" : "");
+        return `
+            <tr>
+                <td><span class="mono">${escapeHtml(o.port)}</span></td>
+                <td><input type="text" class="cam-label-input" value="${escapeAttr(o.name || "")}"
+                    placeholder="e.g. HDMI Extender 1"
+                    oninput="onPduFieldChange(${i}, 'name', this.value)"></td>
+                <td>
+                    <select class="pdu-alias-select" onchange="onPduFieldChange(${i}, 'tuya_alias', this.value)">
+                        ${_pduAliasOptions(o.tuya_alias)}
+                    </select>
+                </td>
+                <td><input type="number" class="pdu-num-input" min="1" max="99"
+                    value="${o.tuya_switch || 1}"
+                    oninput="onPduFieldChange(${i}, 'tuya_switch', this.value)"></td>
+                <td><input type="number" class="pdu-num-input" min="0" max="300"
+                    value="${o.on_delay_seconds || 0}"
+                    oninput="onPduFieldChange(${i}, 'on_delay_seconds', this.value)"></td>
+                <td><span class="pdu-state-chip ${stateCls}">${state ? state.toUpperCase() : "—"}</span></td>
+                <td>
+                    <div class="pdu-test-buttons">
+                        <button class="btn-switch btn-on"  onclick="sendPduCommand('${escapeAttr(o.port)}', true)">ON</button>
+                        <button class="btn-switch btn-off" onclick="sendPduCommand('${escapeAttr(o.port)}', false)">OFF</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join("");
+}
+
+function onPduFieldChange(i, field, value) {
+    if (!pduConfig) return;
+    const o = pduConfig.outlets[i];
+    if (!o) return;
+    if (field === "on_delay_seconds") o[field] = Math.max(0, parseInt(value, 10) || 0);
+    else if (field === "tuya_switch") o[field] = String(value || "1");
+    else o[field] = value;
+}
+
+function sendPduCommand(port, on) {
+    wsSend({type: "pdu_command", port, on});
+}
+
+async function savePduConfig() {
+    if (!pduConfig) return;
+    const body = {
+        thor: {
+            base_url: document.getElementById("pdu-base-url").value.trim(),
+            username: document.getElementById("pdu-user").value,
+            password: document.getElementById("pdu-pass").value,
+        },
+        outlets: pduConfig.outlets.map(o => ({
+            port: o.port,
+            name: o.name || "",
+            tuya_alias: o.tuya_alias || "",
+            tuya_switch: o.tuya_switch || "1",
+            on_delay_seconds: parseInt(o.on_delay_seconds, 10) || 0,
+        })),
+    };
+    await postJson("/api/pdu-config", body, "pdu-save-status");
+    // Reload so the password_set indicator refreshes
+    loadPduConfig();
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────
 async function loadSettings() {
     try {
@@ -636,6 +770,7 @@ function setupTabs() {
             if (tab === "settings") loadSettings();
             if (tab === "devices") loadDevices();
             if (tab === "gpio") loadGpioConfig();
+            if (tab === "pdu") loadPduConfig();
         });
     });
 }
