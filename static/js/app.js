@@ -617,12 +617,13 @@ function renderPdu() {
         return;
     }
     if (!pduConfig.outlets.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No outlets configured</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No outlets configured</td></tr>';
         return;
     }
     tbody.innerHTML = pduConfig.outlets.map((o, i) => {
         const state = pduOutletStatus[o.port];
-        const stateCls = state === "on" ? "pdu-on" : (state === "off" ? "pdu-off" : "");
+        const onActive  = state === "on"  ? "active" : "";
+        const offActive = state === "off" ? "active" : "";
         const cur = pduOutletCurrent[o.port];
         const curHtml = (cur !== undefined && cur !== null)
             ? `<span class="pdu-current">${cur.toFixed(2)} A</span>` : "";
@@ -644,13 +645,10 @@ function renderPdu() {
                     value="${o.on_delay_seconds || 0}"
                     oninput="onPduFieldChange(${i}, 'on_delay_seconds', this.value)"></td>
                 <td>
-                    <span class="pdu-state-chip ${stateCls}">${state ? state.toUpperCase() : "—"}</span>
-                    ${curHtml}
-                </td>
-                <td>
                     <div class="pdu-test-buttons">
-                        <button class="btn-switch btn-on"  onclick="sendPduCommand('${escapeAttr(o.port)}', true)">ON</button>
-                        <button class="btn-switch btn-off" onclick="sendPduCommand('${escapeAttr(o.port)}', false)">OFF</button>
+                        <button class="btn-switch btn-on ${onActive}"  onclick="sendPduCommand('${escapeAttr(o.port)}', true)">ON</button>
+                        <button class="btn-switch btn-off ${offActive}" onclick="sendPduCommand('${escapeAttr(o.port)}', false)">OFF</button>
+                        ${curHtml}
                     </div>
                 </td>
             </tr>

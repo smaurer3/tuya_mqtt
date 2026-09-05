@@ -441,24 +441,24 @@ html, body {
 .pdu-alias-select { min-width: 160px; }
 .pdu-num-input { width: 74px; }
 .pdu-alias-select:focus, .pdu-num-input:focus { border-color: var(--border-focus); }
-.pdu-state-chip {
-    display: inline-block; font-family: var(--font-mono); font-size: 11px;
-    padding: 3px 10px; border-radius: 4px;
-    background: var(--bg-input); border: 1px solid var(--border);
-    color: var(--text-muted); letter-spacing: 0.06em;
-}
-.pdu-state-chip.pdu-on {
-    color: var(--gate-on); border-color: var(--gate-on);
-    background: rgba(37,99,235,0.12); box-shadow: 0 0 8px var(--gate-on-glow);
-}
-.pdu-state-chip.pdu-off {
-    color: var(--text-dim);
-}
-.pdu-test-buttons { display: flex; gap: 6px; }
+.pdu-test-buttons { display: flex; align-items: center; gap: 6px; }
 .pdu-current {
-    display: inline-block; margin-left: 8px;
+    display: inline-block; margin-left: 4px;
     font-family: var(--font-mono); font-size: 10px;
     color: var(--text-muted); letter-spacing: 0.04em;
+}
+
+/* Illuminated button state — shows current PDU outlet state without a
+   separate chip. ON glows blue (matches the "gate active" palette used
+   elsewhere), OFF glows a subtle muted red. */
+.btn-switch.btn-on.active {
+    color: white; border-color: var(--gate-on); background: var(--gate-on);
+    box-shadow: 0 0 10px var(--gate-on-glow);
+}
+.btn-switch.btn-on.active:hover { color: white; }
+.btn-switch.btn-off.active {
+    color: var(--text); border-color: var(--text-muted);
+    background: var(--bg-panel-2);
 }
 
 /* ── GPIO ── */
