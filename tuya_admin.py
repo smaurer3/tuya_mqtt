@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import paho.mqtt.client as mqtt
 import requests
+import xml.etree.ElementTree as ET
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -156,7 +157,8 @@ gpio_output_state: dict = {}               # output name -> "on"/"off" we last c
 # PDU (THOR RF11) mirror state
 pdu_last_state: dict = {}                  # dev_id -> {switch: "on"|"off"} — edge detection
 pdu_last_state_lock = threading.Lock()
-pdu_outlet_status: dict = {}               # port -> "on"/"off" — last commanded
+pdu_outlet_status: dict = {}               # port -> "on"/"off" — last known (from poll or command)
+pdu_outlet_current: dict = {}              # port -> amps (float, from /status.xml)
 pdu_reachable: Optional[bool] = None       # None=unknown, True/False from last HTTP
 
 
@@ -404,6 +406,7 @@ async def lifespan(app: FastAPI):
     global loop
     loop = asyncio.get_running_loop()
     start_mqtt()
+    threading.Thread(target=pdu_poll_thread, daemon=True, name="pdu-poll").start()
     yield
     if mqtt_client:
         mqtt_client.loop_stop()
@@ -658,10 +661,12 @@ def thor_set_outlet(port, value):
                          timeout=5)
         ok = r.ok
         pdu_reachable = ok
+        # Optimistic UI update — the next poll cycle will confirm
         pdu_outlet_status[port] = "on" if value == "1" else "off"
         broadcast_async({"type": "pdu_outlet", "port": port,
-                         "value": pdu_outlet_status[port], "ok": ok,
-                         "reachable": pdu_reachable})
+                         "value": pdu_outlet_status[port],
+                         "current": pdu_outlet_current.get(port),
+                         "ok": ok, "reachable": pdu_reachable})
         return ok
     except Exception as e:
         pdu_reachable = False
@@ -669,6 +674,67 @@ def thor_set_outlet(port, value):
                          "ok": False, "reachable": False, "error": str(e)})
         print(f"[PDU] {port}={value} error: {e}")
         return False
+
+
+def pdu_poll_thread():
+    """Poll /status.xml every 5 s so the UI shows the PDU's real state and
+    per-outlet current draw, not just what we last commanded."""
+    global pdu_reachable
+    while True:
+        cfg = load_pdu_config().get("thor", {})
+        base = (cfg.get("base_url") or "").rstrip("/")
+        if not base:
+            time.sleep(5)
+            continue
+        try:
+            r = requests.get(
+                f"{base}/status.xml",
+                auth=(cfg.get("username", ""), cfg.get("password", "")),
+                timeout=4,
+            )
+            if not r.ok:
+                raise RuntimeError(f"HTTP {r.status_code}")
+            root = ET.fromstring(r.text)
+            was_reachable = pdu_reachable
+            pdu_reachable = True
+            for i in range(1, 9):
+                port = f"p{i}"
+                state_el = root.find(port)
+                curr_el = root.find(f"c{i}")
+                new_state = None
+                if state_el is not None and state_el.text is not None:
+                    new_state = "on" if state_el.text.strip() == "1" else "off"
+                new_current = None
+                if curr_el is not None and curr_el.text is not None:
+                    try:
+                        new_current = float(curr_el.text.strip())
+                    except ValueError:
+                        pass
+                changed = (
+                    (new_state is not None and pdu_outlet_status.get(port) != new_state)
+                    or (new_current is not None and pdu_outlet_current.get(port) != new_current)
+                )
+                if new_state is not None:
+                    pdu_outlet_status[port] = new_state
+                if new_current is not None:
+                    pdu_outlet_current[port] = new_current
+                if changed:
+                    broadcast_async({
+                        "type": "pdu_outlet",
+                        "port": port,
+                        "value": pdu_outlet_status.get(port),
+                        "current": pdu_outlet_current.get(port),
+                        "reachable": True,
+                    })
+            if not was_reachable:
+                broadcast_async({"type": "pdu_reachable", "reachable": True})
+        except Exception as e:
+            if pdu_reachable is not False:
+                print(f"[PDU] poll error: {e}")
+                broadcast_async({"type": "pdu_reachable", "reachable": False,
+                                 "error": str(e)})
+            pdu_reachable = False
+        time.sleep(5)
 
 
 def _pdu_apply_with_delay(port, value_str, delay, name):
@@ -749,6 +815,7 @@ async def api_get_pdu_config():
         "thor": thor,
         "outlets": cfg.get("outlets", []),
         "outlet_status": pdu_outlet_status,
+        "outlet_current": pdu_outlet_current,
         "reachable": pdu_reachable,
     }
 
@@ -782,6 +849,7 @@ async def websocket_endpoint(ws: WebSocket):
             "gpio_input_state": gpio_input_state,
             "gpio_output_state": gpio_output_state,
             "pdu_outlet_status": pdu_outlet_status,
+            "pdu_outlet_current": pdu_outlet_current,
             "pdu_reachable": pdu_reachable,
         })
         while True:

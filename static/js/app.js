@@ -5,7 +5,8 @@ let devices = [];                  // [{name, id, ip, version, alias, state}]
 let aliasDraft = {};               // dev_id -> alias (uncommitted edits)
 let switchesShown = {};            // dev_id -> Set<switch>
 let pduConfig = null;              // {thor, outlets} — staged locally, saved on demand
-let pduOutletStatus = {};          // port -> "on"/"off"
+let pduOutletStatus = {};          // port -> "on"/"off" (live from PDU poll)
+let pduOutletCurrent = {};         // port -> amps (live from PDU poll)
 let pduReachable = null;           // last known health of the PDU HTTP endpoint
 let gpioConfigDraft = null;        // {inputs, outputs} — staged edits
 let gpioInputState = {};           // name -> last payload (live)
@@ -57,6 +58,7 @@ function handleWs(msg) {
             gpioInputState = msg.gpio_input_state || {};
             gpioOutputState = msg.gpio_output_state || {};
             pduOutletStatus = msg.pdu_outlet_status || {};
+            pduOutletCurrent = msg.pdu_outlet_current || {};
             pduReachable = msg.pdu_reachable;
             renderDevices();
             renderGpio();
@@ -90,7 +92,12 @@ function handleWs(msg) {
             break;
         case "pdu_outlet":
             if (msg.value) pduOutletStatus[msg.port] = msg.value;
+            if (msg.current !== undefined && msg.current !== null) pduOutletCurrent[msg.port] = msg.current;
             if (msg.reachable !== undefined) pduReachable = msg.reachable;
+            renderPdu();
+            break;
+        case "pdu_reachable":
+            pduReachable = !!msg.reachable;
             renderPdu();
             break;
         case "pdu_command_ack":
@@ -573,6 +580,7 @@ async function loadPduConfig() {
             outlets: (j.outlets || []).map(o => ({...o})),
         };
         pduOutletStatus = j.outlet_status || pduOutletStatus;
+        pduOutletCurrent = j.outlet_current || pduOutletCurrent;
         pduReachable = j.reachable != null ? j.reachable : pduReachable;
         // Populate the settings form
         document.getElementById("pdu-base-url").value = pduConfig.thor.base_url;
@@ -615,6 +623,9 @@ function renderPdu() {
     tbody.innerHTML = pduConfig.outlets.map((o, i) => {
         const state = pduOutletStatus[o.port];
         const stateCls = state === "on" ? "pdu-on" : (state === "off" ? "pdu-off" : "");
+        const cur = pduOutletCurrent[o.port];
+        const curHtml = (cur !== undefined && cur !== null)
+            ? `<span class="pdu-current">${cur.toFixed(2)} A</span>` : "";
         return `
             <tr>
                 <td><span class="mono">${escapeHtml(o.port)}</span></td>
@@ -632,7 +643,10 @@ function renderPdu() {
                 <td><input type="number" class="pdu-num-input" min="0" max="300"
                     value="${o.on_delay_seconds || 0}"
                     oninput="onPduFieldChange(${i}, 'on_delay_seconds', this.value)"></td>
-                <td><span class="pdu-state-chip ${stateCls}">${state ? state.toUpperCase() : "—"}</span></td>
+                <td>
+                    <span class="pdu-state-chip ${stateCls}">${state ? state.toUpperCase() : "—"}</span>
+                    ${curHtml}
+                </td>
                 <td>
                     <div class="pdu-test-buttons">
                         <button class="btn-switch btn-on"  onclick="sendPduCommand('${escapeAttr(o.port)}', true)">ON</button>

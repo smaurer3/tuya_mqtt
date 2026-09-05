@@ -455,6 +455,11 @@ html, body {
     color: var(--text-dim);
 }
 .pdu-test-buttons { display: flex; gap: 6px; }
+.pdu-current {
+    display: inline-block; margin-left: 8px;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--text-muted); letter-spacing: 0.04em;
+}
 
 /* ── GPIO ── */
 .gpio-list { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
