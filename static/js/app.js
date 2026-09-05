@@ -685,7 +685,7 @@ async function savePduConfig() {
             on_delay_seconds: parseInt(o.on_delay_seconds, 10) || 0,
         })),
     };
-    await postJson("/api/pdu-config", body, "pdu-save-status");
+    await postSettings("/api/pdu-config", body, "pdu-save-status", "Saved");
     // Reload so the password_set indicator refreshes
     loadPduConfig();
 }
