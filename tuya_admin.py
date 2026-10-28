@@ -274,57 +274,77 @@ discovery_lock = threading.Lock()
 discovery_running = False
 
 
+def _format_cloud_error(err_dict: dict) -> str:
+    """Pretty-print a tinytuya cloud error dict for the UI log."""
+    short = err_dict.get("Error") or "Unknown error"
+    err_code = err_dict.get("Err")
+    payload = err_dict.get("Payload")
+    if isinstance(payload, dict):
+        payload_str = (f"Tuya code {payload.get('code')}: {payload.get('msg')}"
+                       if payload.get("code") else json.dumps(payload))
+    else:
+        payload_str = str(payload) if payload else ""
+    parts = [short]
+    if payload_str:
+        parts.append(payload_str)
+    if err_code:
+        parts.append(f"(Err={err_code})")
+    if payload_str and "28841002" in payload_str:
+        parts.append("Your Tuya IoT Cloud Development plan has expired — renew at iot.tuya.com.")
+    return " — ".join(parts)
+
+
 def _discovery_worker():
-    """Run a Tuya scan + cloud-key fetch in a background thread.
-    Streams progress over WS. Writes devices.json on success."""
+    """Run a Tuya cloud fetch (for keys/metadata) + local network scan (for
+    IPs) in a background thread. Writes devices.json atomically.
+
+    Falls back gracefully: if the cloud fetch fails (expired plan, no
+    network, missing creds) but we have an existing devices.json, we still
+    do the local scan and refresh IPs — all keys/mappings/metadata stay
+    intact from the previous successful discovery."""
     global discovery_running
     try:
         broadcast_async({"type": "discovery", "stage": "starting"})
 
         import tinytuya  # local import — only required for discovery
 
-        # 1) Cloud fetch
-        creds = load_tinytuya_creds()
-        if not creds.get("apiKey") or not creds.get("apiSecret"):
-            broadcast_async({"type": "discovery", "stage": "error",
-                             "message": "Tuya cloud credentials missing — set them in Settings"})
-            return
+        existing_by_id = {d["id"]: d for d in load_devices() if d.get("id")}
 
-        broadcast_async({"type": "discovery", "stage": "cloud_fetch",
-                         "message": "Fetching device list from Tuya Cloud…"})
-        cloud = tinytuya.Cloud(
-            apiRegion=creds.get("apiRegion", "us"),
-            apiKey=creds["apiKey"],
-            apiSecret=creds["apiSecret"],
-            apiDeviceID=creds.get("apiDeviceID", "")
-        )
-        cloud_devs = cloud.getdevices()
-        if isinstance(cloud_devs, dict) and "Error" in cloud_devs:
-            # tinytuya returns {Error, Err, Payload}. Payload is usually the
-            # raw human string from the Tuya cloud (sometimes a dict). We
-            # surface everything so the user never has to drop to the wizard
-            # to figure out what's wrong.
-            short = cloud_devs.get("Error") or "Unknown error"
-            err_code = cloud_devs.get("Err")
-            payload = cloud_devs.get("Payload")
-            if isinstance(payload, dict):
-                payload_str = (f"Tuya code {payload.get('code')}: {payload.get('msg')}"
-                               if payload.get("code") else json.dumps(payload))
-            else:
-                payload_str = str(payload) if payload else ""
-            parts = [short]
-            if payload_str:
-                parts.append(payload_str)
-            if err_code:
-                parts.append(f"(Err={err_code})")
-            # Hint for the case we've actually seen
-            if payload_str and "28841002" in payload_str:
-                parts.append("Your Tuya IoT Cloud Development plan has expired — renew at iot.tuya.com.")
-            broadcast_async({"type": "discovery", "stage": "error",
-                             "message": "Cloud error: " + " — ".join(parts)})
-            return
-        broadcast_async({"type": "discovery", "stage": "cloud_done",
-                         "message": f"Got {len(cloud_devs)} device(s) from cloud"})
+        # 1) Cloud fetch (optional — we can proceed without it if existing
+        #    devices.json has what we need)
+        creds = load_tinytuya_creds()
+        cloud_devs = None
+        cloud_err_msg = None
+
+        if not creds.get("apiKey") or not creds.get("apiSecret"):
+            cloud_err_msg = "Tuya cloud credentials missing — set them in Settings"
+        else:
+            broadcast_async({"type": "discovery", "stage": "cloud_fetch",
+                             "message": "Fetching device list from Tuya Cloud…"})
+            try:
+                cloud = tinytuya.Cloud(
+                    apiRegion=creds.get("apiRegion", "us"),
+                    apiKey=creds["apiKey"],
+                    apiSecret=creds["apiSecret"],
+                    apiDeviceID=creds.get("apiDeviceID", "")
+                )
+                result = cloud.getdevices()
+                if isinstance(result, dict) and "Error" in result:
+                    cloud_err_msg = _format_cloud_error(result)
+                else:
+                    cloud_devs = result
+                    broadcast_async({"type": "discovery", "stage": "cloud_done",
+                                     "message": f"Got {len(cloud_devs)} device(s) from cloud"})
+            except Exception as e:
+                cloud_err_msg = f"{type(e).__name__}: {e}"
+
+        if cloud_err_msg:
+            if not existing_by_id:
+                broadcast_async({"type": "discovery", "stage": "error",
+                                 "message": f"Cloud error: {cloud_err_msg} — and no existing devices.json to fall back on, so there are no known device keys to work with."})
+                return
+            broadcast_async({"type": "discovery", "stage": "cloud_skipped",
+                             "message": f"Cloud unavailable ({cloud_err_msg}) — falling back to local-only scan on {len(existing_by_id)} known device(s). Keys and metadata preserved; only IPs will be refreshed."})
 
         # 2) Local scan
         broadcast_async({"type": "discovery", "stage": "scanning",
@@ -334,32 +354,47 @@ def _discovery_worker():
         scan_by_id = {info.get("gwId"): info for info in scan.values() if info.get("gwId")}
 
         broadcast_async({"type": "discovery", "stage": "scan_done",
-                         "message": f"Found {len(scan_by_id)} device(s) on network"})
+                         "message": f"Found {len(scan_by_id)} device(s) on local network"})
 
-        # 3) Merge
+        # 3) Merge — the union of existing + cloud, with scan results layered
+        #    on top for IP/version. Each layer only writes fields it actually
+        #    has, so cloud-provided metadata (mapping, product_name, uuid,
+        #    etc.) is preserved even when cloud is unavailable this run.
+        cloud_by_id = {d["id"]: d for d in (cloud_devs or []) if d.get("id")}
+        all_ids = set(existing_by_id) | set(cloud_by_id)
+
         merged = []
-        for d in cloud_devs:
-            dev_id = d.get("id")
-            if not dev_id:
-                continue
+        for dev_id in sorted(all_ids):
+            e = existing_by_id.get(dev_id, {})
+            c = cloud_by_id.get(dev_id, {})
             local = scan_by_id.get(dev_id, {})
-            merged.append({
-                "name": d.get("name", dev_id),
-                "id": dev_id,
-                "key": d.get("key", ""),
-                "mac": d.get("mac", ""),
-                "ip": local.get("ip", ""),
-                "ver": str(local.get("version", "3.3")),
-                "version": str(local.get("version", "3.3")),
-            })
+            # Start with existing, overlay any field cloud provides, then
+            # overlay local-scan IP/version (only if actually found)
+            entry = {**e}
+            for k, v in c.items():
+                if v not in (None, ""):
+                    entry[k] = v
+            entry["id"] = dev_id
+            if local.get("ip"):
+                entry["ip"] = local["ip"]
+                if local.get("version"):
+                    entry["version"] = str(local["version"])
+                    entry["ver"] = str(local["version"])
+            entry.setdefault("name", dev_id)
+            entry.setdefault("key", "")
+            entry.setdefault("ip", "")
+            entry.setdefault("version", str(entry.get("ver", "3.3")))
+            merged.append(entry)
 
         # 4) Write devices.json atomically
         save_json(DEVICES_FILE, merged)
+        on_net = sum(1 for m in merged if m.get("ip"))
+        suffix = " (cloud-skipped — local-only mode)" if cloud_err_msg else ""
         broadcast_async({
             "type": "discovery", "stage": "done",
-            "message": f"Wrote {len(merged)} device(s) to devices.json",
+            "message": f"Wrote {len(merged)} device(s) to devices.json — {on_net} currently on this LAN" + suffix,
             "found": len(merged),
-            "on_network": sum(1 for m in merged if m["ip"]),
+            "on_network": on_net,
         })
         broadcast_async({"type": "devices_changed"})
     except Exception as e:
